@@ -23,23 +23,27 @@ npx serve .
 ## Architecture
 
 ### Single-File Structure
-All code lives in `index.html` (~1200 lines):
-- **Lines 1-260**: HTML structure and embedded CSS
-- **Lines 260-340**: Utility classes (`OneEuroFilter`, `GestureDebouncer`)
-- **Lines 340-410**: Configuration and global state object
-- **Lines 410-620**: Three.js setup and shape generators
-- **Lines 620-1010**: MediaPipe hand tracking and gesture processing (`onResults`)
-- **Lines 1010-1180**: Animation loop and event handlers
+All code lives in `index.html` (~1320 lines):
+- **Lines 1-210**: HTML structure and embedded CSS
+- **Lines 260-345**: Utility classes (`OneEuroFilter`, `GestureDebouncer`)
+- **Lines 345-380**: Fingerpose gesture definitions
+- **Lines 380-470**: Configuration, filters, debouncers, state object
+- **Lines 470-660**: Three.js setup and shape generators
+- **Lines 700-1120**: MediaPipe hand tracking and gesture processing (`onResults`)
+- **Lines 1120-1280**: Animation loop with momentum, visual feedback
+- **Lines 1280+**: Event handlers
 
 ### Core Technologies
 - **Three.js (r128)**: 3D rendering with BufferGeometry particle system (5000 particles)
 - **MediaPipe Hands**: Real-time hand landmark detection (up to 2 hands)
+- **Fingerpose (0.1.0)**: Custom gesture recognition (pinch, open_hand, fist)
 - **Vanilla JavaScript**: No frameworks
 
 ### Filtering & Smoothing System
-- **OneEuroFilter**: Industry-standard adaptive low-pass filter for position smoothing
+- **OneEuroFilter**: Adaptive low-pass filter for position smoothing
 - **GestureDebouncer**: Temporal filtering to prevent rapid state transitions
-- **Hysteresis thresholds**: Different enter/exit thresholds for pinch detection (0.65/0.50)
+- **Hysteresis thresholds**: Different enter/exit thresholds for pinch detection (0.55/0.40)
+- **Fingerpose boost**: Adds up to 15% to pinch detection, 30% to tension
 
 ### State Management
 Global `state` object tracks:
@@ -48,12 +52,15 @@ Global `state` object tracks:
 - Transform values (`objectOffset`, `objectRotation`, `twoHandScale`)
 - Smoothed input values (`tension`, `pinchStrength`, `hand2PinchStrength`)
 - Hand identity tracking (`primaryHandLabel`) to prevent swap issues
+- Momentum state (`velocity`, `angularVelocity`, `momentumActive`)
+- Fingerpose scores (`gestureScores`, `gestureScores2`)
+- Namaste cooldown (`namasteCooldownUntil`)
 
 ### Gesture Priority (highest to lowest)
-1. **Namaste Reset**: Palm distance < 0.15 → reset all transforms and filters
-2. **Double Pinch Zoom**: Both hands pinching → elastic zoom
+1. **Namaste Reset**: Palm distance < 0.28 → reset all transforms and filters (500ms cooldown)
+2. **Double Pinch Zoom**: Both hands pinching → elastic zoom with glow effect
 3. **Two-Hand Steering**: One hand pinching, other open → rotate Z-axis
-4. **Single Pinch Grab**: One hand pinching → drag and rotate
+4. **Single Pinch Grab**: One hand pinching → drag and rotate with momentum on release
 5. **Idle**: No pinch → breathing animation, auto-rotation
 
 ## Key Code Locations
@@ -62,17 +69,26 @@ Global `state` object tracks:
 |----------------|---------|
 | `OneEuroFilter` | Adaptive smoothing for hand positions |
 | `GestureDebouncer` | Temporal filtering for gesture states |
+| `pinchGesture`, `fistGesture` | Fingerpose gesture definitions |
+| `gestureEstimator` | Fingerpose estimator instance |
 | `onResults(results)` | Processes MediaPipe landmarks, detects gestures |
-| `animate()` | Main render loop, applies transforms |
+| `animate()` | Main render loop, applies transforms, momentum, visual feedback |
 | `switchShape(name)` | Morphs particles to target shape |
 | `shapes.*` | Shape generators (sphere, heart, flower, saturn, buddha, fireworks) |
+
+## Visual Feedback System
+- **Grab**: Warm orange color shift (30% tint)
+- **Zoom**: White glow + 40% larger particles
+- **High Tension**: Red color shift + position jitter + size pulsing
+- **Momentum**: Object glides after release (friction 0.92)
 
 ## Coding Standards
 
 - **KISS Architecture**: Single-file, no frameworks
 - **Performance**: Pre-allocate arrays, minimize GC in animation loop
 - **Smoothing**: Use lerp (0.08-0.15) for visual transitions, OneEuroFilter for input
-- **Pinch Detection**: Use hysteresis (enter: 0.65, exit: 0.50) with debouncing
+- **Pinch Detection**: Use hysteresis (enter: 0.55, exit: 0.40) with debouncing
+- **Fingerpose**: Boost-only mode (don't replace distance detection)
 - **Gesture Transitions**: Always reset filters/debouncers when switching modes
 
 ## Branch Workflow
@@ -80,3 +96,8 @@ Global `state` object tracks:
 - `main` is protected, requires PR
 - Feature branches: `feature/name` or `fix/description`
 - Target 60 FPS for smooth gesture interactions
+
+## Next Steps (Phase 3)
+- Adaptive particle count (5000 desktop, 2000 mobile)
+- FPS monitoring
+- Optimize hot path (reduce GC, cache DOM refs)
