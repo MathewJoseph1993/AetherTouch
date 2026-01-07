@@ -278,12 +278,15 @@
             currentHandPos: { x: 0, y: 0 },
             objectOffset: { x: 0, y: 0, z: 0 },
             objectRotation: { x: 0, y: 0, z: 0 }, // Accumulated rotation
-            // Iron Man two-handed zoom state
+            // Iron Man two-handed state
             twoHandDistance: 0,
             twoHandStartDistance: 0,
             twoHandStartScale: 1.0,
             twoHandScale: 1.0,
+            twoHandStartAngle: 0,      // For Steering
+            twoHandStartObjRotation: 0, // For Steering Z
             isZooming: false,
+            isSteering: false,         // New Flag for Closed-Hand Steering
             targetColor: new THREE.Color(0x00f3ff),
             baseColor: new THREE.Color(0x00f3ff),
             time: 0
@@ -707,6 +710,47 @@
                     const zoomPercent = Math.round(state.twoHandScale * 100);
                     zoomText.innerText = `Zoom: ${zoomPercent}%`;
 
+                    // --- TWO-HANDED STEERING (Rotate) ---
+                    // "Steering" activation: closing both hands
+                    // We need to check tension of both hands. 
+                    // To save perf, we just check simple wrist-to-middle distance approx or assume if Pinch is active on Hand 1 (already calc)
+                    // Let's do a simple check: is the user "Grabbing"? We already have state.isPinching (Hand 1). 
+                    // If Hand 1 is "Pinching/Grabbing", we assume the user intends to manipulate.
+                    // Ideally check Hand 2 too.
+
+                    // Simple heuristic: If "isPinching" (Hand 1) is true AND we have 2 hands, 
+                    // AND Hand 1 is part of the 2 hands tuple (which it is),
+                    // THEN we enable steering.
+
+                    if (state.isPinching) {
+                        state.isSteering = true;
+
+                        // Calculate angle between the two wrists
+                        // atan2(y2-y1, x2-x1)
+                        const angle = Math.atan2(palm2.y - palm1.y, palm2.x - palm1.x);
+
+                        // On first frame of steering, record start
+                        if (state.twoHandStartAngle === null) {
+                            state.twoHandStartAngle = angle;
+                            state.twoHandStartObjRotation = state.objectRotation.z;
+                        } else {
+                            // Calculate delta
+                            const deltaAngle = angle - state.twoHandStartAngle;
+
+                            // Apply to Z rotation (Tilt)
+                            // Invert delta because Y is inverted in screen coords
+                            // sensitivity 1.0 = 1:1 rotation
+                            state.objectRotation.z = state.twoHandStartObjRotation - deltaAngle;
+                        }
+
+                        zoomText.innerText = `Steering... ${zoomPercent}%`;
+
+                    } else {
+                        // Open hands -> Reset steering state
+                        state.isSteering = false;
+                        state.twoHandStartAngle = null;
+                    }
+
                 } else {
                     // Only one hand or no hands - stop zooming but keep scale
                     if (state.isZooming) {
@@ -728,6 +772,8 @@
                 state.isPinching = false;
                 state.isGrabbing = false;
                 state.isZooming = false;
+                state.isSteering = false;
+                state.twoHandStartAngle = null;
                 document.getElementById('pinch-dot').classList.remove('active');
                 document.getElementById('pinch-text').innerText = 'Pinch: Inactive';
                 document.getElementById('zoom-dot').classList.remove('active');
