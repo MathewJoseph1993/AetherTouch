@@ -612,6 +612,32 @@
                     } else {
                         state.isDoublePinching = false;
                     }
+
+                    // --- NAMASTE RESET (Highest Priority) ---
+                    // Palms close (< 0.1) AND Both Hands OPEN (Not Pinching)
+                    // We use 'handDist' which is calculated later in the loop usually, 
+                    // BUT we can calc it here for H1 vs H2.
+                    const palm1 = landmarks[0];
+                    const palm2 = hand2[0];
+                    const palmDist = Math.sqrt(Math.pow(palm1.x - palm2.x, 2) + Math.pow(palm1.y - palm2.y, 2));
+
+                    if (palmDist < 0.1 && !state.isPinching && !isHand2Pinching) {
+                        // TRIGGER RESET
+                        state.objectOffset = { x: 0, y: 0, z: 0 };
+                        state.objectRotation = { x: 0, y: 0, z: 0 };
+                        state.twoHandScale = 1.0;
+                        state.neutralDistance = null; // Reset Zoom lock
+
+                        // UI Feedback
+                        zoomText.innerText = "Values Reset";
+                        zoomDot.classList.add('active');
+
+                        // Block other inputs
+                        state.isGrabbing = false;
+                        state.isDoublePinching = false;
+                        return; // Skip rest of frame? Or just let it flow with reset values
+                    }
+
                 } else {
                     state.isDoublePinching = false;
                 }
@@ -992,6 +1018,22 @@
         }
 
         animate();
+
+        // --- Keyboard Controls ---
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                // RESET (Same as Namaste)
+                state.objectOffset = { x: 0, y: 0, z: 0 };
+                state.objectRotation = { x: 0, y: 0, z: 0 };
+                state.twoHandScale = 1.0;
+                state.neutralDistance = null;
+                state.isGrabbing = false;
+                state.isDoublePinching = false;
+
+                const zoomText = document.getElementById('status-text');
+                if (zoomText) zoomText.innerText = "System Reset";
+            }
+        });
 
     </script>
 </body>
