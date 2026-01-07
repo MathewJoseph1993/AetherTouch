@@ -854,30 +854,24 @@
             particles.rotation.z = state.objectRotation.z;
 
             // Smoothly interpolate the object scale (0.05 for very smooth transitions)
-            // Priority: Two-handed zoom > Pinch > Single-hand tension > Idle
+            // Priority: Two-handed zoom > Grab (Stable) > Single-hand tension > Idle
             let finalScale = scaleFactor;
 
-            // Two-handed Iron Man zoom takes priority
             if (state.twoHandsDetected) {
+                // Iron Man Zoom
                 finalScale = state.twoHandScale;
-            } else if (state.isPinching) {
-                // Pinch contracts the particles
-                finalScale = 0.3 + (1 - state.pinchStrength) * 0.2; // 0.3 to 0.5 when pinching
+            } else if (state.isGrabbing) {
+                // STABLE GRAB: When holding the object, keep it at a stable size
+                // We use the last known zoom scale (or default 1.0) so it doesn't shrink
+                finalScale = Math.max(state.twoHandScale, 1.0);
             }
-            // Otherwise use the tension-based scaleFactor calculated above
+            // Else fall back to 'scaleFactor' (Textion/Idle)
 
             particles.scale.lerp(new THREE.Vector3(finalScale, finalScale, finalScale), 0.08);
 
-            // --- Pinch Color Effect ---
-            // When pinching, shift color towards accent purple (#bc13fe)
-            const accentColor = new THREE.Color(0xbc13fe);
-            if (state.isPinching) {
-                // Lerp towards accent color based on pinch strength
-                material.color.lerp(accentColor, 0.1);
-            } else {
-                // Lerp back to base color
-                material.color.lerp(state.baseColor, 0.05);
-            }
+            // --- Color Logic ---
+            // Keep the selected color (no pink shift)
+            material.color.lerp(state.baseColor, 0.1);
 
             // --- Apply Grab Offset (Pinch-and-Drag) ---
             // Smoothly lerp the particle group position towards the target offset
