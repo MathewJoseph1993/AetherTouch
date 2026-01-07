@@ -258,12 +258,121 @@
     </div>
 
     <script>
+        // --- One Euro Filter (Industry-standard smoothing for gesture tracking) ---
+        // Reduces jitter while maintaining responsiveness
+        class OneEuroFilter {
+            constructor(minCutoff = 1.0, beta = 0.007, dCutoff = 1.0) {
+                this.minCutoff = minCutoff;
+                this.beta = beta;
+                this.dCutoff = dCutoff;
+                this.x = null;
+                this.dx = 0;
+                this.lastTime = null;
+            }
+
+            alpha(cutoff, dt) {
+                const tau = 1.0 / (2 * Math.PI * cutoff);
+                return 1.0 / (1.0 + tau / dt);
+            }
+
+            filter(x, timestamp = null) {
+                if (this.lastTime === null) {
+                    this.x = x;
+                    this.lastTime = timestamp || performance.now() / 1000;
+                    return x;
+                }
+
+                const now = timestamp || performance.now() / 1000;
+                const dt = Math.max(now - this.lastTime, 0.001);
+                this.lastTime = now;
+
+                const dx = (x - this.x) / dt;
+                const alphaDx = this.alpha(this.dCutoff, dt);
+                this.dx = alphaDx * dx + (1 - alphaDx) * this.dx;
+
+                const cutoff = this.minCutoff + this.beta * Math.abs(this.dx);
+                const alphaX = this.alpha(cutoff, dt);
+                this.x = alphaX * x + (1 - alphaX) * this.x;
+
+                return this.x;
+            }
+
+            reset() {
+                this.x = null;
+                this.dx = 0;
+                this.lastTime = null;
+            }
+        }
+
+        // --- Gesture State Debouncer ---
+        // Prevents rapid state transitions that cause glitches
+        class GestureDebouncer {
+            constructor(enterDelay = 50, exitDelay = 100) {
+                this.enterDelay = enterDelay;
+                this.exitDelay = exitDelay;
+                this.state = false;
+                this.pendingState = false;
+                this.lastChangeTime = 0;
+            }
+
+            update(rawState) {
+                const now = performance.now();
+
+                if (rawState !== this.pendingState) {
+                    this.pendingState = rawState;
+                    this.lastChangeTime = now;
+                }
+
+                const delay = this.pendingState ? this.enterDelay : this.exitDelay;
+
+                if (this.pendingState !== this.state && (now - this.lastChangeTime) >= delay) {
+                    this.state = this.pendingState;
+                }
+
+                return this.state;
+            }
+
+            reset() {
+                this.state = false;
+                this.pendingState = false;
+                this.lastChangeTime = 0;
+            }
+        }
+
         // --- Configuration & State ---
         const config = {
             particleCount: 5000,
             baseSize: 0.15,
             lerpSpeed: 0.05,
-            handInteractionStrength: 2.0
+            handInteractionStrength: 2.0,
+            // Pinch detection with hysteresis (different thresholds for enter/exit)
+            pinchEnterThreshold: 0.65,
+            pinchExitThreshold: 0.50,
+            // Gesture timing
+            gestureEnterDelay: 60,   // ms to wait before activating gesture
+            gestureExitDelay: 120    // ms to wait before deactivating gesture
+        };
+
+        // --- Filters for smooth hand tracking ---
+        const filters = {
+            hand1: {
+                grabX: new OneEuroFilter(1.0, 0.01),
+                grabY: new OneEuroFilter(1.0, 0.01),
+                palmX: new OneEuroFilter(1.5, 0.005),
+                palmY: new OneEuroFilter(1.5, 0.005)
+            },
+            hand2: {
+                palmX: new OneEuroFilter(1.5, 0.005),
+                palmY: new OneEuroFilter(1.5, 0.005)
+            }
+        };
+
+        // --- Gesture Debouncers ---
+        const debouncers = {
+            pinch: new GestureDebouncer(config.gestureEnterDelay, config.gestureExitDelay),
+            pinch2: new GestureDebouncer(config.gestureEnterDelay, config.gestureExitDelay),
+            steering: new GestureDebouncer(100, 150),
+            doublePinch: new GestureDebouncer(80, 100)
         };
 
         const state = {
@@ -596,7 +705,7 @@
                 const tension = 1 - Math.max(0, Math.min(1, normalized));
                 state.tension = state.tension * 0.92 + tension * 0.08;
 
-                // --- Pinch Detection ---
+                // --- Pinch Detection with Hysteresis ---
                 const thumbTip = landmarks[4];
                 const indexTip = landmarks[8];
                 const pinchDist = Math.sqrt(
@@ -615,11 +724,21 @@
                 const wasSteering = state.isSteering;
                 const hadTwoHands = state.twoHandsDetected;
 
-                state.isPinching = state.pinchStrength > 0.6;
+                // Hysteresis: different thresholds for entering vs exiting pinch state
+                const rawPinchState = state.isPinching
+                    ? state.pinchStrength > config.pinchExitThreshold   // Stay pinching until below exit threshold
+                    : state.pinchStrength > config.pinchEnterThreshold; // Only start pinching above enter threshold
 
-                // --- Grab Point Calculation ---
-                const grabPointX = (thumbTip.x + indexTip.x) / 2;
-                const grabPointY = (thumbTip.y + indexTip.y) / 2;
+                // Debounce the pinch state to prevent rapid toggling
+                state.isPinching = debouncers.pinch.update(rawPinchState);
+
+                // --- Grab Point Calculation with Filtering ---
+                const rawGrabX = (thumbTip.x + indexTip.x) / 2;
+                const rawGrabY = (thumbTip.y + indexTip.y) / 2;
+
+                // Apply One Euro Filter for smooth, responsive tracking
+                const grabPointX = filters.hand1.grabX.filter(rawGrabX);
+                const grabPointY = filters.hand1.grabY.filter(rawGrabY);
                 state.currentHandPos = { x: grabPointX, y: grabPointY };
 
                 // --- TWO-HAND DETECTION ---
@@ -638,13 +757,27 @@
                     const h2PinchNorm = (h2PinchDist - h2PinchMin) / (h2PinchMax - h2PinchMin);
                     const h2RawPinchStrength = 1 - Math.max(0, Math.min(1, h2PinchNorm));
                     state.hand2PinchStrength = state.hand2PinchStrength * 0.85 + h2RawPinchStrength * 0.15;
-                    const isHand2Pinching = state.hand2PinchStrength > 0.6;
+
+                    // Hand 2 pinch with hysteresis and debouncing
+                    const rawH2PinchState = state.hand2PinchStrength > config.pinchEnterThreshold;
+                    const isHand2Pinching = debouncers.pinch2.update(rawH2PinchState);
 
                     // --- GESTURE PRIORITY SYSTEM ---
                     // Priority: Namaste Reset > Double Pinch Zoom > Two-Hand Steering > Single-Hand Grab
 
-                    const palm1 = landmarks[0];
-                    const palm2 = hand2[0];
+                    // Filter palm positions for stable steering/zoom
+                    const rawPalm1X = landmarks[0].x;
+                    const rawPalm1Y = landmarks[0].y;
+                    const rawPalm2X = hand2[0].x;
+                    const rawPalm2Y = hand2[0].y;
+
+                    const palm1X = filters.hand1.palmX.filter(rawPalm1X);
+                    const palm1Y = filters.hand1.palmY.filter(rawPalm1Y);
+                    const palm2X = filters.hand2.palmX.filter(rawPalm2X);
+                    const palm2Y = filters.hand2.palmY.filter(rawPalm2Y);
+
+                    const palm1 = { x: palm1X, y: palm1Y };
+                    const palm2 = { x: palm2X, y: palm2Y };
                     const palmDist = Math.sqrt(Math.pow(palm1.x - palm2.x, 2) + Math.pow(palm1.y - palm2.y, 2));
                     const handDist = palmDist;
                     state.twoHandDistance = handDist;
@@ -661,6 +794,11 @@
                         state.isSteering = false;
                         state.twoHandStartAngle = null;
                         state.primaryHandLabel = null;
+
+                        // Reset all filters and debouncers for clean state
+                        Object.values(filters.hand1).forEach(f => f.reset());
+                        Object.values(filters.hand2).forEach(f => f.reset());
+                        Object.values(debouncers).forEach(d => d.reset());
 
                         zoomText.innerText = "Reset!";
                         zoomDot.classList.add('active');
@@ -854,6 +992,11 @@
                 state.twoHandStartAngle = null;
                 state.neutralDistance = null;
                 state.primaryHandLabel = null;
+
+                // Reset filters and debouncers when hands are lost
+                Object.values(filters.hand1).forEach(f => f.reset());
+                Object.values(filters.hand2).forEach(f => f.reset());
+                Object.values(debouncers).forEach(d => d.reset());
 
                 pinchDot.classList.remove('active');
                 pinchText.innerText = 'Pinch: Inactive';
