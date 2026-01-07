@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive 3D Particles & Hand Tracking</title>
+    <style>
+        :root {
+            --primary-color: #00f3ff;
+            --bg-color: #050505;
+            --panel-bg: rgba(20, 20, 30, 0.7);
+            --text-color: #ffffff;
+            --accent-color: #bc13fe;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: var(--text-color);
+        }
+
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        /* UI Overlay */
+        #ui-container {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 280px;
+            padding: 20px;
+            background: var(--panel-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 10;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            transition: opacity 0.3s ease;
+        }
+
+        h1 {
+            font-size: 1.2rem;
+            margin-bottom: 0.5rem;
+            margin-top: 0;
+            background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 700;
+        }
+
+        p.status {
+            font-size: 0.8rem;
+            color: #aaa;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #ff3b3b;
+            transition: background-color 0.3s;
+        }
+
+        .status-dot.active {
+            background-color: #00ff88;
+        }
+
+        .controls-section {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        /* Buttons */
+        .btn-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        button {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-color);
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s ease;
+        }
+
+        button:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        button.active {
+            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+            border-color: transparent;
+            color: #000;
+            font-weight: bold;
+        }
+
+        /* Color Picker */
+        input[type="color"] {
+            -webkit-appearance: none;
+            appearance: none;
+            border: none;
+            width: 100%;
+            height: 40px;
+            border-radius: 8px;
+            cursor: pointer;
+            background: transparent;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        input[type="color"]::-webkit-color-swatch-wrapper {
+            padding: 0;
+        }
+
+        input[type="color"]::-webkit-color-swatch {
+            border: none;
+            border-radius: 8px;
+        }
+
+        /* Webcam feedback (hidden but useful for debugging if needed, currently set to display none) */
+        #video-feed {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 160px;
+            border-radius: 12px;
+            opacity: 0.5;
+            z-index: 5;
+            transform: scaleX(-1);
+            /* Mirror */
+            display: block;
+            /* Shown for user feedback */
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            pointer-events: none;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            transition: opacity 0.5s;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-top-color: var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+    </style>
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <!-- MediaPipe Hands -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+</head>
+
+<body>
+
+    <div class="loading-overlay" id="loader">
+        <div class="spinner"></div>
+        <p style="margin-top: 1rem;">Loading AI Models...</p>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <!-- Small webcam feed for feedback -->
+    <video id="video-feed" playsinline></video>
+
+    <div id="ui-container">
+        <h1>Particle Morph</h1>
+        <p class="status">
+            <span class="status-dot" id="status-dot"></span>
+            <span id="status-text">Detecting Hands...</span>
+        </p>
+        <p class="status" style="margin-top: -0.5rem;">
+            <span class="status-dot" id="pinch-dot"></span>
+            <span id="pinch-text">Pinch: Inactive</span>
+        </p>
+        <p class="status" style="margin-top: -0.5rem;">
+            <span class="status-dot" id="zoom-dot"></span>
+            <span id="zoom-text">Zoom: Use both hands</span>
+        </p>
+
+        <div class="controls-section">
+            <label>Templates</label>
+            <div class="btn-grid">
+                <button class="tpl-btn active" data-shape="sphere">Sphere</button>
+                <button class="tpl-btn" data-shape="heart">Heart</button>
+                <button class="tpl-btn" data-shape="flower">Flower</button>
+                <button class="tpl-btn" data-shape="saturn">Saturn</button>
+                <button class="tpl-btn" data-shape="buddha">Buddha</button>
+                <button class="tpl-btn" data-shape="fireworks">Fireworks</button>
+            </div>
+        </div>
+
+        <div class="controls-section">
+            <label>Particle Color</label>
+            <input type="color" id="color-picker" value="#00f3ff">
+        </div>
+    </div>
+
+    <script>
+        // --- Configuration & State ---
+        const config = {
+            particleCount: 5000,
+            baseSize: 0.15,
+            lerpSpeed: 0.05,
+            handInteractionStrength: 2.0
+        };
+
+        const state = {
+            currentShape: 'sphere',
+            handDetected: false,
+            twoHandsDetected: false,
+            tension: 0, // 0 to 1 (relaxed to clenched)
+            pinchStrength: 0, // 0 to 1 (open to pinched)
+            isPinching: false,
+            // Grab-and-drag state
+            isGrabbing: false,
+            grabStartHandPos: { x: 0, y: 0 },
+            grabStartObjectPos: { x: 0, y: 0, z: 0 },
+            grabStartHandAngle: 0,
+            grabStartObjectRotation: { x: 0, y: 0, z: 0 },
+            currentHandPos: { x: 0, y: 0 },
+            objectOffset: { x: 0, y: 0, z: 0 },
+            objectRotation: { x: 0, y: 0, z: 0 }, // Accumulated rotation
+            // Iron Man two-handed zoom state
+            twoHandDistance: 0,
+            twoHandStartDistance: 0,
+            twoHandStartScale: 1.0,
+            twoHandScale: 1.0,
+            isZooming: false,
+            targetColor: new THREE.Color(0x00f3ff),
+            baseColor: new THREE.Color(0x00f3ff),
+            time: 0
+        };
+
+        // --- Three.js Setup ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x050505, 0.02);
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.z = 15;
+        camera.position.y = 2;
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        container.appendChild(renderer.domElement);
+
+        // --- Particle System ---
+        // We'll use BufferGeometry for performance
+        const geometry = new THREE.BufferGeometry();
+        const positions = new Float32Array(config.particleCount * 3);
+        const targetPositions = new Float32Array(config.particleCount * 3); // Where particles want to go
+        const originalPositions = new Float32Array(config.particleCount * 3); // Base for shapes
+
+        // Initialize with random positions
+        for (let i = 0; i < config.particleCount * 3; i++) {
+            positions[i] = (Math.random() - 0.5) * 50;
+            targetPositions[i] = positions[i];
+        }
+
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+        // Create a custom material or use PointsMaterial
+        // Using a texture sprite for particles makes them look nicer
+        const sprite = new THREE.TextureLoader().load('https://threejs.org/examples/textures/sprites/disc.png');
+        const material = new THREE.PointsMaterial({
+            size: config.baseSize,
+            color: state.targetColor,
+            map: sprite,
+            alphaTest: 0.5,
+            transparent: true,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+        });
+
+        const particles = new THREE.Points(geometry, material);
+        scene.add(particles);
+
+        // --- Shape Generators ---
+        // Helper to set a point in the target array
+        function setTarget(i, x, y, z) {
+            targetPositions[i * 3] = x;
+            targetPositions[i * 3 + 1] = y;
+            targetPositions[i * 3 + 2] = z;
+        }
+
+        const shapes = {
+            sphere: () => {
+                const r = 6;
+                for (let i = 0; i < config.particleCount; i++) {
+                    const phi = Math.acos(-1 + (2 * i) / config.particleCount);
+                    const theta = Math.sqrt(config.particleCount * Math.PI) * phi;
+
+                    const x = r * Math.cos(theta) * Math.sin(phi);
+                    const y = r * Math.sin(theta) * Math.sin(phi);
+                    const z = r * Math.cos(phi);
+                    setTarget(i, x, y, z);
+                }
+            },
+            heart: () => {
+                // Parametric heart
+                // x = 16sin^3(t)
+                // y = 13cos(t) - 5cos(2t) - 2cos(3t) - cos(4t)
+                // z = varied depth
+                const scale = 0.35;
+                for (let i = 0; i < config.particleCount; i++) {
+                    const t = Math.random() * Math.PI * 2;
+                    // Spread points somewhat randomly but adhering to volume
+                    const r = Math.random(); // Variance for filling inside
+
+                    // Simple outline
+                    let x = 16 * Math.pow(Math.sin(t), 3);
+                    let y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
+                    let z = (Math.random() - 0.5) * 4; // Thickness
+
+                    // Randomize slightly to fill volume
+                    const v = 1 - Math.random() * 0.2;
+                    x *= v; y *= v;
+
+                    setTarget(i, x * scale, y * scale + 2, z * scale);
+                }
+            },
+            flower: () => {
+                // Rose curve (polar) r = cos(k*theta)
+                const k = 4; // 4 petals
+                const scale = 4;
+                for (let i = 0; i < config.particleCount; i++) {
+                    const theta = Math.random() * Math.PI * 2;
+                    const r_curve = Math.cos(k * theta);
+
+                    // Add thickness and layers
+                    const r = (r_curve + 0.2) * scale * Math.random();
+
+                    const x = r * Math.cos(theta);
+                    const y = r * Math.sin(theta);
+                    const z = (Math.random() - 0.5) * (2 - r / scale); // Thicker center
+
+                    setTarget(i, x, y + 2, z);
+                }
+            },
+            saturn: () => {
+                const planetRadius = 3.5;
+                const ringInner = 4.5;
+                const ringOuter = 8;
+
+                for (let i = 0; i < config.particleCount; i++) {
+                    if (i < config.particleCount * 0.4) {
+                        // Planet body (Sphere)
+                        const phi = Math.acos(-1 + (2 * i) / (config.particleCount * 0.4));
+                        const theta = Math.sqrt(config.particleCount * Math.PI) * phi;
+                        const x = planetRadius * Math.cos(theta) * Math.sin(phi);
+                        const y = planetRadius * Math.sin(theta) * Math.sin(phi);
+                        const z = planetRadius * Math.cos(phi);
+                        setTarget(i, x, y, z);
+                    } else {
+                        // Rings (Disc)
+                        const angle = Math.random() * Math.PI * 2;
+                        const dist = ringInner + Math.random() * (ringOuter - ringInner);
+                        const x = dist * Math.cos(angle);
+                        const z = dist * Math.sin(angle);
+                        const y = (Math.random() - 0.5) * 0.2; // Thin ring
+
+                        // Tilt the ring
+                        const tilt = Math.PI / 6;
+                        const yt = y * Math.cos(tilt) - x * Math.sin(tilt);
+                        const xt = y * Math.sin(tilt) + x * Math.cos(tilt);
+
+                        setTarget(i, xt, yt, z);
+                    }
+                }
+            },
+            buddha: () => {
+                // Simplified Meditating Figure (Solid Geometry Construction)
+                // Head (sphere), Body (Ellipsoid), Legs (Torus segment/Cylinders)
+                const headR = 1.5;
+                const bodyR = 2.5;
+
+                for (let i = 0; i < config.particleCount; i++) {
+                    const r = Math.random();
+                    // Distribute points: 20% Head, 40% Body, 40% Legs/Base
+
+                    if (r < 0.2) {
+                        // Head
+                        const theta = Math.random() * Math.PI * 2;
+                        const phi = Math.random() * Math.PI;
+                        const rad = headR;
+                        const x = rad * Math.sin(phi) * Math.cos(theta);
+                        const y = rad * Math.sin(phi) * Math.sin(theta) + 3.5; // Offset up
+                        const z = rad * Math.cos(phi);
+                        setTarget(i, x, y, z);
+                    } else if (r < 0.6) {
+                        // Body
+                        const theta = Math.random() * Math.PI * 2;
+                        const phi = Math.random() * Math.PI;
+                        const x = bodyR * 0.9 * Math.sin(phi) * Math.cos(theta);
+                        const y = bodyR * 1.2 * Math.sin(phi) * Math.sin(theta); // Elongated Y
+                        const z = bodyR * 0.8 * Math.cos(phi);
+                        setTarget(i, x, y, z);
+                    } else {
+                        // Legs/Base (Wide flatten sphere/torus approx)
+                        const angle = Math.random() * Math.PI * 2; // -PI to PI
+                        // We want a semi-circle loop for crossed legs
+                        const rad = 3.5 + Math.random() * 0.5;
+                        const x = rad * Math.cos(angle);
+                        const y = -2.0 + (Math.random() * 1.5);
+                        const z = rad * Math.sin(angle) * 0.6; // Flattened depth
+
+                        // Cut off back to make it look like knees forward? 
+                        // Lets just make a wide base ellipsoid
+                        setTarget(i, x, y, z);
+                    }
+                }
+            },
+            fireworks: () => {
+                // Burst from center
+                for (let i = 0; i < config.particleCount; i++) {
+                    // Random direction
+                    const theta = Math.random() * Math.PI * 2;
+                    const phi = Math.random() * Math.PI;
+                    // Random radius mostly at edge
+                    const r = 2 + Math.random() * 8;
+
+                    const x = r * Math.sin(phi) * Math.cos(theta);
+                    const y = r * Math.sin(phi) * Math.sin(theta);
+                    const z = r * Math.cos(phi);
+                    setTarget(i, x, y, z);
+                }
+            }
+        };
+
+        // Initialize default shape
+        shapes[state.currentShape]();
+
+        // --- Interaction & Event Listeners ---
+        function switchShape(shapeName) {
+            if (shapes[shapeName]) {
+                state.currentShape = shapeName;
+                shapes[shapeName]();
+
+                // Update UI buttons
+                document.querySelectorAll('.tpl-btn').forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.shape === shapeName);
+                });
+            }
+        }
+
+        // Click handlers for templates
+        document.querySelectorAll('.tpl-btn').forEach(btn => {
+            btn.addEventListener('click', () => switchShape(btn.dataset.shape));
+        });
+
+        // Color picker
+        const colorPicker = document.getElementById('color-picker');
+        colorPicker.addEventListener('input', (e) => {
+            state.targetColor.set(e.target.value);
+            state.baseColor.set(e.target.value);
+            material.color.set(state.targetColor);
+        });
+
+        // Resize handler
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // --- Hand Tracking Setup (MediaPipe) ---
+        const videoElement = document.getElementById('video-feed');
+        const statusDot = document.getElementById('status-dot');
+        const statusText = document.getElementById('status-text');
+
+        function onResults(results) {
+            // Hide loader on first result
+            document.getElementById('loader').classList.add('hidden');
+
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                state.handDetected = true;
+                statusDot.classList.add('active');
+                statusText.innerText = `Hands Detected: ${results.multiHandLandmarks.length}`;
+
+                // Calculate Tension
+                // We'll use the first detected hand
+                const landmarks = results.multiHandLandmarks[0];
+
+                // Key points: Wrist (0), Thumb Tip (4), Index Tip (8), Middle Tip (12), Ring Tip (16), Pinky Tip (20)
+                // Calculate average distance from tips to wrist
+                // Wrist is at 0
+                const wrist = landmarks[0];
+                const tips = [4, 8, 12, 16, 20];
+
+                let totalDist = 0;
+                tips.forEach(idx => {
+                    const tip = landmarks[idx];
+                    // Use 2D distance (X,Y) only - Z from webcams is noisy
+                    const d = Math.sqrt(
+                        Math.pow(tip.x - wrist.x, 2) +
+                        Math.pow(tip.y - wrist.y, 2)
+                    );
+                    totalDist += d;
+                });
+
+                const avgDist = totalDist / tips.length;
+
+                // Adjusted thresholds for 2D normalized coordinates
+                const minC = 0.12;
+                const maxC = 0.35;
+                const normalized = (avgDist - minC) / (maxC - minC);
+                // Clamp 0 to 1
+                const tension = 1 - Math.max(0, Math.min(1, normalized)); // 1 = closed (high tension), 0 = open
+
+                // Increased smoothing for stability (0.92 old, 0.08 new)
+                state.tension = state.tension * 0.92 + tension * 0.08;
+
+                // --- Pinch Detection (Apple Vision Pro style) ---
+                // Thumb tip = 4, Index tip = 8
+                const thumbTip = landmarks[4];
+                const indexTip = landmarks[8];
+                const pinchDist = Math.sqrt(
+                    Math.pow(thumbTip.x - indexTip.x, 2) +
+                    Math.pow(thumbTip.y - indexTip.y, 2)
+                );
+
+                // Pinch thresholds (normalized screen coords)
+                // Pinched: < 0.05, Open: > 0.12
+                const pinchMin = 0.04;
+                const pinchMax = 0.12;
+                const pinchNorm = (pinchDist - pinchMin) / (pinchMax - pinchMin);
+                const rawPinchStrength = 1 - Math.max(0, Math.min(1, pinchNorm));
+
+                // Smooth the pinch value
+                state.pinchStrength = state.pinchStrength * 0.85 + rawPinchStrength * 0.15;
+                const wasPinching = state.isPinching;
+                state.isPinching = state.pinchStrength > 0.6;
+
+                // --- Grab-and-Drag Logic ---
+                // Use the midpoint between thumb and index as the "grab point"
+                const grabPointX = (thumbTip.x + indexTip.x) / 2;
+                const grabPointY = (thumbTip.y + indexTip.y) / 2;
+                state.currentHandPos = { x: grabPointX, y: grabPointY };
+
+                // When pinch just started (transition from not pinching to pinching)
+                if (state.isPinching && !wasPinching) {
+                    state.isGrabbing = true;
+                    state.grabStartHandPos = { x: grabPointX, y: grabPointY };
+                    state.grabStartObjectPos = {
+                        x: state.objectOffset.x,
+                        y: state.objectOffset.y,
+                        z: state.objectOffset.z
+                    };
+
+                    // Initialize Rotation State
+                    const indexMCP = landmarks[5];
+                    state.grabStartHandAngle = Math.atan2(indexMCP.y - wrist.y, indexMCP.x - wrist.x);
+                    state.grabStartObjectRotation = {
+                        x: state.objectRotation.x,
+                        y: state.objectRotation.y,
+                        z: state.objectRotation.z
+                    };
+                }
+
+                // While grabbing, calculate the delta and update offset
+                if (state.isGrabbing && state.isPinching) {
+                    // --- Translation ---
+                    // Calculate delta in normalized coords (0-1), convert to 3D world units
+                    const sensitivity = 25;
+                    const deltaX = (grabPointX - state.grabStartHandPos.x) * sensitivity;
+                    const deltaY = -(grabPointY - state.grabStartHandPos.y) * sensitivity; // Invert Y
+
+                    state.objectOffset.x = state.grabStartObjectPos.x - deltaX;
+                    state.objectOffset.y = state.grabStartObjectPos.y + deltaY;
+
+                    // --- Rotation (Hand Roll) ---
+                    // Calculate hand angle using Wrist (0) and Index MCP (5)
+                    // This vector represents the "up" direction of the hand relative to the arm
+                    const indexMCP = landmarks[5];
+                    const currentHandAngle = Math.atan2(indexMCP.y - wrist.y, indexMCP.x - wrist.x);
+
+                    // Calculate angular delta
+                    let deltaAngle = currentHandAngle - state.grabStartHandAngle;
+
+                    // Map Hand Roll -> Object Z Rotation (Roll) AND Object Y Rotation (Spin)
+                    // 'Spinning' the hand (Roll) feels like turning a dial. 
+                    // Let's map it primarily to Z (Screen Plane Roll) for disjoint manipulation,
+                    // BUT for 3D viewing, Y-rotation is often desired.
+                    // Let's do: Hand Roll -> Object Z Rotation (direct mapping)
+
+                    state.objectRotation.z = state.grabStartObjectRotation.z - deltaAngle; // Invert for natural feel
+
+                    // Bonus: Map horizontal hand movement to Y-Rotation (like spinning a globe)
+                    // if you prefer that over translation. For now, let's stick to just Z-Roll from Hand Roll
+                    // as requested "rotating my hand".
+                }
+
+                // When pinch released
+                if (!state.isPinching && wasPinching) {
+                    state.isGrabbing = false;
+                }
+
+                // Update pinch UI
+                const pinchDot = document.getElementById('pinch-dot');
+                const pinchText = document.getElementById('pinch-text');
+                if (state.isPinching) {
+                    pinchDot.classList.add('active');
+                    pinchText.innerText = state.isGrabbing ? `Grabbing...` : `Pinch: Active`;
+                } else {
+                    pinchDot.classList.remove('active');
+                    pinchText.innerText = `Pinch: ${Math.round(state.pinchStrength * 100)}%`;
+                }
+
+                // --- IRON MAN TWO-HANDED ZOOM ---
+                const zoomDot = document.getElementById('zoom-dot');
+                const zoomText = document.getElementById('zoom-text');
+
+                if (results.multiHandLandmarks.length >= 2) {
+                    state.twoHandsDetected = true;
+
+                    // Get the palm center (wrist) of both hands
+                    const hand1 = results.multiHandLandmarks[0];
+                    const hand2 = results.multiHandLandmarks[1];
+                    const palm1 = hand1[0]; // Wrist of hand 1
+                    const palm2 = hand2[0]; // Wrist of hand 2
+
+                    // Calculate distance between the two palms
+                    const handDist = Math.sqrt(
+                        Math.pow(palm1.x - palm2.x, 2) +
+                        Math.pow(palm1.y - palm2.y, 2)
+                    );
+
+                    state.twoHandDistance = handDist;
+
+                    // When two hands first appear, record the starting distance and scale
+                    if (!state.isZooming) {
+                        state.isZooming = true;
+                        state.twoHandStartDistance = handDist;
+                        state.twoHandStartScale = state.twoHandScale;
+                    }
+
+                    // Calculate scale based on hand distance ratio
+                    // If hands spread apart (distance increases), scale up
+                    // If hands come together (distance decreases), scale down
+                    const distanceRatio = handDist / state.twoHandStartDistance;
+                    const newScale = state.twoHandStartScale * distanceRatio;
+
+                    // Clamp scale between 0.3 and 3.0
+                    state.twoHandScale = Math.max(0.3, Math.min(3.0, newScale));
+
+                    // Update zoom UI
+                    zoomDot.classList.add('active');
+                    const zoomPercent = Math.round(state.twoHandScale * 100);
+                    zoomText.innerText = `Zoom: ${zoomPercent}%`;
+
+                } else {
+                    // Only one hand or no hands - stop zooming but keep scale
+                    if (state.isZooming) {
+                        state.isZooming = false;
+                    }
+                    state.twoHandsDetected = false;
+                    zoomDot.classList.remove('active');
+                    zoomText.innerText = 'Zoom: Use both hands';
+                }
+
+            } else {
+                state.handDetected = false;
+                state.twoHandsDetected = false;
+                statusDot.classList.remove('active');
+                statusText.innerText = "No Hands Detected";
+                // Slow decay when hands are lost
+                state.tension = state.tension * 0.985;
+                state.pinchStrength = state.pinchStrength * 0.95;
+                state.isPinching = false;
+                state.isGrabbing = false;
+                state.isZooming = false;
+                document.getElementById('pinch-dot').classList.remove('active');
+                document.getElementById('pinch-text').innerText = 'Pinch: Inactive';
+                document.getElementById('zoom-dot').classList.remove('active');
+                document.getElementById('zoom-text').innerText = 'Zoom: Use both hands';
+            }
+        }
+
+        const hands = new Hands({
+            locateFile: (file) => {
+                return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+            }
+        });
+
+        hands.setOptions({
+            maxNumHands: 2,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
+        });
+
+        hands.onResults(onResults);
+
+        // Webcam initialization
+        const cameraUtils = new Camera(videoElement, {
+            onFrame: async () => {
+                await hands.send({ image: videoElement });
+            },
+            width: 640,
+            height: 480
+        });
+
+        cameraUtils.start()
+            .then(() => console.log('Camera started'))
+            .catch(err => {
+                console.error('Camera error', err);
+                statusText.innerText = "Camera Access Denied";
+                document.getElementById('loader').classList.add('hidden');
+            });
+
+
+        // --- Animation Loop ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const positionAttribute = geometry.attributes.position;
+            const currentPositions = positionAttribute.array;
+
+            // Time for idle animation
+            state.time += 0.01;
+
+            // Determine Scale Factor based on Hand Tension
+            // High tension (fist) = Contract/Small or Explode? 
+            // Requirements: "detect tension... Map this to: Scaling... Expansion/contraction"
+            // Let's make High Tension = Expansion (Power up) or Contraction (Crush).
+            // Let's go with: Open Hand = Relaxed (Normal Size), Closed Hand = High Tension (Particles contract tightly and shake)
+
+            // Actually, usually "Opening hand" feels like expansion.
+            // Let's do: Closed Fist = Contract/condense to center. Open Hand = Expand beyond normal.
+
+            // Base scale is 1.0
+            // Tension 1.0 (Closed) -> Scale 0.5
+            // Tension 0.0 (Open) -> Scale 1.5
+            // But if hands not detected, default to 1.0 idle breathing
+
+            let scaleFactor = 1.0;
+            if (state.handDetected) {
+                // Map tension (0..1) to scale
+                // Tension 0 (Open) -> 1.5
+                // Tension 1 (Closed) -> 0.4
+                scaleFactor = 1.5 - (state.tension * 1.1);
+            } else {
+                // Idle breathing
+                scaleFactor = 1.0 + Math.sin(state.time) * 0.1;
+            }
+
+            // Loop through particles
+            for (let i = 0; i < config.particleCount; i++) {
+                const ix = i * 3;
+                const iy = i * 3 + 1;
+                const iz = i * 3 + 2;
+
+                // 1. Interpolate towards target shape
+                const tx = targetPositions[ix];
+                const ty = targetPositions[iy];
+                const tz = targetPositions[iz];
+
+                // Lerp current to target
+                currentPositions[ix] += (tx - currentPositions[ix]) * config.lerpSpeed;
+                currentPositions[iy] += (ty - currentPositions[iy]) * config.lerpSpeed;
+                currentPositions[iz] += (tz - currentPositions[iz]) * config.lerpSpeed;
+
+                // 2. Apply Interaction (Scale/Explode based on tension)
+                // We modify the rendered position relative to center (0,0,0) or center of mass?
+                // Simple scaling around (0,0,0)
+
+                // We don't overwrite the buffer 'currentPositions' with the scaled version permanently, 
+                // otherwise it drifts. We apply the scale to the coordinate we write back, 
+                // BUT we need 'currentPositions' to store the shape state.
+
+                // Solution: We update 'currentPositions' to move towards 'targetPositions'. 
+                // BUT, to render the scale effect, we might need to update the actual geometry 
+                // differently or apply a global scale to the Object3D.
+
+                // Applying global scale to the Points object is most efficient and smooth.
+                // However, the requirement says "Map tension to... Scaling of the entire particle group".
+                // Yes, valid.
+            }
+
+            // Update Geometry
+            positionAttribute.needsUpdate = true;
+
+            // Apply Scale & Rotation
+
+            // Auto-rotate ONLY if not grabbing
+            if (!state.isGrabbing) {
+                state.objectRotation.y += 0.002;
+            }
+
+            // Apply proper rotations from state
+            // Lerp towards the state rotation for smoothness
+            // We use a simple lerp on Euler angles (works fine for small increments)
+            particles.rotation.x = state.objectRotation.x;
+            particles.rotation.y = state.objectRotation.y;
+            particles.rotation.z = state.objectRotation.z;
+
+            // Smoothly interpolate the object scale (0.05 for very smooth transitions)
+            // Priority: Two-handed zoom > Pinch > Single-hand tension > Idle
+            let finalScale = scaleFactor;
+
+            // Two-handed Iron Man zoom takes priority
+            if (state.twoHandsDetected) {
+                finalScale = state.twoHandScale;
+            } else if (state.isPinching) {
+                // Pinch contracts the particles
+                finalScale = 0.3 + (1 - state.pinchStrength) * 0.2; // 0.3 to 0.5 when pinching
+            }
+            // Otherwise use the tension-based scaleFactor calculated above
+
+            particles.scale.lerp(new THREE.Vector3(finalScale, finalScale, finalScale), 0.08);
+
+            // --- Pinch Color Effect ---
+            // When pinching, shift color towards accent purple (#bc13fe)
+            const accentColor = new THREE.Color(0xbc13fe);
+            if (state.isPinching) {
+                // Lerp towards accent color based on pinch strength
+                material.color.lerp(accentColor, 0.1);
+            } else {
+                // Lerp back to base color
+                material.color.lerp(state.baseColor, 0.05);
+            }
+
+            // --- Apply Grab Offset (Pinch-and-Drag) ---
+            // Smoothly lerp the particle group position towards the target offset
+            const targetX = state.objectOffset.x;
+            const targetY = state.objectOffset.y;
+
+            // Add jitter if high tension (but not when grabbing)
+            let jitterX = 0, jitterY = 0;
+            if (state.tension > 0.8 && !state.isGrabbing) {
+                jitterX = (Math.random() - 0.5) * 0.2;
+                jitterY = (Math.random() - 0.5) * 0.2;
+            }
+
+            // Smooth position update
+            particles.position.x += ((targetX + jitterX) - particles.position.x) * 0.1;
+            particles.position.y += ((targetY + jitterY) - particles.position.y) * 0.1;
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+    </script>
+</body>
+
+</html>
