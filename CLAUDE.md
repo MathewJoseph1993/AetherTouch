@@ -6,7 +6,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 AetherTouch is a touchless interactive 3D particle system using hand gesture recognition. It's a **single-file HTML application** (`index.html`) with no build process, package manager, or external dependencies beyond CDN-hosted libraries.
 
-## Running the Application
+## Development
+
+**No build system** - This is a single HTML file with CDN dependencies.
+- No `npm install`, no bundler, no tests, no linting
+- Just serve and refresh browser to see changes
+
+### Running the Application
 
 Serve over HTTP/HTTPS (required for camera access):
 
@@ -20,12 +26,15 @@ npx serve .
 # VS Code: Right-click index.html -> "Open with Live Server"
 ```
 
+### Keyboard Shortcuts
+- **SPACEBAR**: Reset position, scale, rotation (same as Namaste gesture)
+
 ## Architecture
 
 ### Single-File Structure
 All code lives in `index.html` (~1320 lines):
 - **Lines 1-210**: HTML structure and embedded CSS
-- **Lines 260-345**: Utility classes (`OneEuroFilter`, `GestureDebouncer`)
+- **Lines 210-345**: Utility classes (`OneEuroFilter`, `GestureDebouncer`)
 - **Lines 345-380**: Fingerpose gesture definitions
 - **Lines 380-470**: Configuration, filters, debouncers, state object
 - **Lines 470-660**: Three.js setup and shape generators
@@ -96,8 +105,3 @@ Global `state` object tracks:
 - `main` is protected, requires PR
 - Feature branches: `feature/name` or `fix/description`
 - Target 60 FPS for smooth gesture interactions
-
-## Next Steps (Phase 3)
-- Adaptive particle count (5000 desktop, 2000 mobile)
-- FPS monitoring
-- Optimize hot path (reduce GC, cache DOM refs)
