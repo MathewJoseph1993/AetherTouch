@@ -614,14 +614,13 @@
                     }
 
                     // --- NAMASTE RESET (Highest Priority) ---
-                    // Palms close (< 0.1) AND Both Hands OPEN (Not Pinching)
-                    // We use 'handDist' which is calculated later in the loop usually, 
+                    // Palms close (< 0.2). Trigger reset regardless of pinch state. 
                     // BUT we can calc it here for H1 vs H2.
                     const palm1 = landmarks[0];
                     const palm2 = hand2[0];
                     const palmDist = Math.sqrt(Math.pow(palm1.x - palm2.x, 2) + Math.pow(palm1.y - palm2.y, 2));
 
-                    if (palmDist < 0.1 && !state.isPinching && !isHand2Pinching) {
+                    if (palmDist < 0.2) {
                         // TRIGGER RESET
                         state.objectOffset = { x: 0, y: 0, z: 0 };
                         state.objectRotation = { x: 0, y: 0, z: 0 };
