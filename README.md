@@ -4,10 +4,7 @@
 
 **AetherTouch** is a futuristic, touchless interactive particle system that allows you to manipulate 3D objects using hand gestures, inspired by the holographic interfaces seen in movies like *Iron Man*.
 
-<p align="center">
-  <!-- Place holder for a demo GIF or Screenshot -->
-  <img src="https://via.placeholder.com/800x450.png?text=AetherTouch+Demo" alt="AetherTouch Demo">
-</p>
+<!-- TODO: Add a demo GIF or screenshot here -->
 
 ## ✨ Features
 
@@ -36,7 +33,7 @@ Seamlessly transform between mathematical and organic forms:
 
 ## 🛠️ Technology Stack
 
-*   **HTML5 / various CSS3**: Single-file architecture.
+*   **HTML5 / CSS3**: Single-file architecture.
 *   **Three.js**: High-performance WebGL 3D rendering.
 *   **MediaPipe Hands**: Google's real-time hand tracking ML solution.
 *   **Vanilla JS**: No heavy frameworks, just pure performance.
@@ -45,7 +42,7 @@ Seamlessly transform between mathematical and organic forms:
 
 1.  **Clone the repository**:
     ```bash
-    git clone https://github.com/your-username/AetherTouch.git
+    git clone https://github.com/MathewJoseph1993/AetherTouch.git
     cd AetherTouch
     ```
 
