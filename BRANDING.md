@@ -1,6 +1,6 @@
 # Branding Guidelines
 
-This document serves as the design source of truth for the **Particle Morph** project. All future UI additions, marketing assets, or code expansions should adhear to these guidelines to maintain the project's premium, futuristic aesthetic.
+This document serves as the design source of truth for the **AetherTouch** project. All future UI additions, marketing assets, or code expansions should adhear to these guidelines to maintain the project's premium, futuristic aesthetic.
 
 ## 1. Visual Philosophy
 **"Neon Glass"**: The design language combines deep, void-like backgrounds with vibrant, neon-cyberspace accents and frosted glass surfaces. The goal is to feel immersive, modern, and reactive.
