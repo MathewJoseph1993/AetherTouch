@@ -59,3 +59,11 @@ box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
 *   **Idle**: Gentle breathing or slow rotation. Never completely static.
 *   **Reaction**: Smooth interpolation (`lerp`). No instant snaps.
 *   **Tension**: High tension (closed hand) maps to high frequency movement (shake/jitter) or compression.
+
+---
+
+## 6. Author & Maintainer
+
+**[Mathew Joseph](https://www.linkedin.com/in/gtm-engineer-mathew/)** — Creator & Lead Developer
+
+For questions, collaborations, or feedback, connect on LinkedIn.
