@@ -282,16 +282,19 @@
             currentHandPos: { x: 0, y: 0 },
             objectOffset: { x: 0, y: 0, z: 0 },
             objectRotation: { x: 0, y: 0, z: 0 }, // Accumulated rotation
+            // Hand identity tracking (prevents swap issues)
+            primaryHandLabel: null, // 'Left' or 'Right' - which hand is controlling
             // Elastic Zoom State
             twoHandDistance: 0,
             neutralDistance: null,    // The reference distance for "Zero speed"
             twoHandScale: 1.0,        // The persisted scale value
             isDoublePinching: false,  // Active trigger for Elastic Zoom
 
-            twoHandStartAngle: 0,      // For Steering (still useful?)
+            twoHandStartAngle: null,   // For Steering - null indicates not yet initialized
             twoHandStartObjRotation: 0, // For Steering Z
             isSteering: false,         // New Flag for Closed-Hand Steering
             hand2PinchStrength: 0,     // Smoothed pinch strength for hand 2
+            isZooming: false,          // Flag for zoom state
             lastScaleFactor: 1.0,      // For smooth scale transitions
             targetColor: new THREE.Color(0x00f3ff),
             baseColor: new THREE.Color(0x00f3ff),
@@ -540,25 +543,45 @@
             // Hide loader on first result
             document.getElementById('loader').classList.add('hidden');
 
+            // Cache UI elements (avoid repeated DOM queries)
+            const pinchDot = document.getElementById('pinch-dot');
+            const pinchText = document.getElementById('pinch-text');
+            const zoomDot = document.getElementById('zoom-dot');
+            const zoomText = document.getElementById('zoom-text');
+
             if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
                 state.handDetected = true;
                 statusDot.classList.add('active');
                 statusText.innerText = `Hands Detected: ${results.multiHandLandmarks.length}`;
 
-                // Calculate Tension
-                // We'll use the first detected hand
-                const landmarks = results.multiHandLandmarks[0];
+                // --- HAND IDENTITY TRACKING ---
+                // Use handedness to maintain consistent hand identity and prevent swap issues
+                let primaryHandIndex = 0;
+                if (results.multiHandedness && results.multiHandedness.length > 0) {
+                    const currentLabel = results.multiHandedness[0].label;
 
-                // Key points: Wrist (0), Thumb Tip (4), Index Tip (8), Middle Tip (12), Ring Tip (16), Pinky Tip (20)
-                // Calculate average distance from tips to wrist
-                // Wrist is at 0
+                    // If we have a locked primary hand, find it
+                    if (state.primaryHandLabel !== null) {
+                        for (let i = 0; i < results.multiHandedness.length; i++) {
+                            if (results.multiHandedness[i].label === state.primaryHandLabel) {
+                                primaryHandIndex = i;
+                                break;
+                            }
+                        }
+                    } else if (state.isGrabbing || state.isPinching) {
+                        // Lock to current hand when grabbing starts
+                        state.primaryHandLabel = currentLabel;
+                    }
+                }
+
+                const landmarks = results.multiHandLandmarks[primaryHandIndex];
                 const wrist = landmarks[0];
                 const tips = [4, 8, 12, 16, 20];
 
+                // Calculate Tension
                 let totalDist = 0;
                 tips.forEach(idx => {
                     const tip = landmarks[idx];
-                    // Use 2D distance (X,Y) only - Z from webcams is noisy
                     const d = Math.sqrt(
                         Math.pow(tip.x - wrist.x, 2) +
                         Math.pow(tip.y - wrist.y, 2)
@@ -567,19 +590,13 @@
                 });
 
                 const avgDist = totalDist / tips.length;
-
-                // Adjusted thresholds for 2D normalized coordinates
                 const minC = 0.12;
                 const maxC = 0.35;
                 const normalized = (avgDist - minC) / (maxC - minC);
-                // Clamp 0 to 1
-                const tension = 1 - Math.max(0, Math.min(1, normalized)); // 1 = closed (high tension), 0 = open
-
-                // Increased smoothing for stability (0.92 old, 0.08 new)
+                const tension = 1 - Math.max(0, Math.min(1, normalized));
                 state.tension = state.tension * 0.92 + tension * 0.08;
 
-                // --- Pinch Detection (Apple Vision Pro style) ---
-                // Thumb tip = 4, Index tip = 8
+                // --- Pinch Detection ---
                 const thumbTip = landmarks[4];
                 const indexTip = landmarks[8];
                 const pinchDist = Math.sqrt(
@@ -587,27 +604,35 @@
                     Math.pow(thumbTip.y - indexTip.y, 2)
                 );
 
-                // Pinch thresholds (normalized screen coords)
-                // Pinched: < 0.05, Open: > 0.12
                 const pinchMin = 0.04;
                 const pinchMax = 0.12;
                 const pinchNorm = (pinchDist - pinchMin) / (pinchMax - pinchMin);
                 const rawPinchStrength = 1 - Math.max(0, Math.min(1, pinchNorm));
-
-                // Smooth the pinch value
                 state.pinchStrength = state.pinchStrength * 0.85 + rawPinchStrength * 0.15;
+
                 const wasPinching = state.isPinching;
+                const wasDoublePinching = state.isDoublePinching;
+                const wasSteering = state.isSteering;
+                const hadTwoHands = state.twoHandsDetected;
+
                 state.isPinching = state.pinchStrength > 0.6;
 
-                // --- PRE-CALCULATE DOUBLE PINCH (Priority) ---
-                // Check if Hand 2 exists and is pinching
+                // --- Grab Point Calculation ---
+                const grabPointX = (thumbTip.x + indexTip.x) / 2;
+                const grabPointY = (thumbTip.y + indexTip.y) / 2;
+                state.currentHandPos = { x: grabPointX, y: grabPointY };
+
+                // --- TWO-HAND DETECTION ---
                 if (results.multiHandLandmarks.length >= 2) {
-                    const hand2 = results.multiHandLandmarks[1];
+                    state.twoHandsDetected = true;
+
+                    // Get second hand (the one that's NOT the primary)
+                    const secondHandIndex = primaryHandIndex === 0 ? 1 : 0;
+                    const hand2 = results.multiHandLandmarks[secondHandIndex];
                     const h2Thumb = hand2[4];
                     const h2Index = hand2[8];
                     const h2PinchDist = Math.sqrt(Math.pow(h2Thumb.x - h2Index.x, 2) + Math.pow(h2Thumb.y - h2Index.y, 2));
 
-                    // Use same smoothed pinch detection as Hand 1 for consistency
                     const h2PinchMin = 0.04;
                     const h2PinchMax = 0.12;
                     const h2PinchNorm = (h2PinchDist - h2PinchMin) / (h2PinchMax - h2PinchMin);
@@ -615,260 +640,225 @@
                     state.hand2PinchStrength = state.hand2PinchStrength * 0.85 + h2RawPinchStrength * 0.15;
                     const isHand2Pinching = state.hand2PinchStrength > 0.6;
 
-                    if (state.isPinching && isHand2Pinching) {
-                        state.isDoublePinching = true;
-                        state.isGrabbing = false; // Force disable grab
-                    } else {
-                        state.isDoublePinching = false;
-                    }
+                    // --- GESTURE PRIORITY SYSTEM ---
+                    // Priority: Namaste Reset > Double Pinch Zoom > Two-Hand Steering > Single-Hand Grab
 
-                    // --- NAMASTE RESET (Highest Priority) ---
-                    // Palms close (< 0.2). Trigger reset regardless of pinch state. 
-                    // BUT we can calc it here for H1 vs H2.
                     const palm1 = landmarks[0];
                     const palm2 = hand2[0];
                     const palmDist = Math.sqrt(Math.pow(palm1.x - palm2.x, 2) + Math.pow(palm1.y - palm2.y, 2));
+                    const handDist = palmDist;
+                    state.twoHandDistance = handDist;
 
-                    if (palmDist < 0.2) {
+                    // --- NAMASTE RESET (Priority 1 - Highest) ---
+                    if (palmDist < 0.15) {
                         // TRIGGER RESET
                         state.objectOffset = { x: 0, y: 0, z: 0 };
                         state.objectRotation = { x: 0, y: 0, z: 0 };
                         state.twoHandScale = 1.0;
-                        state.neutralDistance = null; // Reset Zoom lock
-
-                        // UI Feedback
-                        zoomText.innerText = "Values Reset";
-                        zoomDot.classList.add('active');
-
-                        // Block other inputs
+                        state.neutralDistance = null;
                         state.isGrabbing = false;
                         state.isDoublePinching = false;
-                        return; // Skip rest of frame? Or just let it flow with reset values
+                        state.isSteering = false;
+                        state.twoHandStartAngle = null;
+                        state.primaryHandLabel = null;
+
+                        zoomText.innerText = "Reset!";
+                        zoomDot.classList.add('active');
+                        pinchDot.classList.remove('active');
+                        pinchText.innerText = 'Namaste Reset';
+                        return;
                     }
 
-                } else {
-                    state.isDoublePinching = false;
-                }
+                    // --- DOUBLE PINCH ZOOM (Priority 2) ---
+                    if (state.isPinching && isHand2Pinching) {
+                        state.isDoublePinching = true;
+                        state.isGrabbing = false;
+                        state.isSteering = false;
+                        state.twoHandStartAngle = null;
 
-                // --- Grab-and-Drag Logic ---
-                // Use the midpoint between thumb and index as the "grab point"
-                const grabPointX = (thumbTip.x + indexTip.x) / 2;
-                const grabPointY = (thumbTip.y + indexTip.y) / 2;
-                state.currentHandPos = { x: grabPointX, y: grabPointY };
-
-                // When pinch just started (transition from not pinching to pinching)
-                // Only start grab if NOT double pinching
-                if (state.isPinching && !wasPinching && !state.isDoublePinching) {
-                    state.isGrabbing = true;
-                    state.grabStartHandPos = { x: grabPointX, y: grabPointY };
-                    state.grabStartObjectPos = {
-                        x: state.objectOffset.x,
-                        y: state.objectOffset.y,
-                        z: state.objectOffset.z
-                    };
-
-                    // Initialize Rotation State
-                    const indexMCP = landmarks[5];
-                    state.grabStartHandAngle = Math.atan2(indexMCP.y - wrist.y, indexMCP.x - wrist.x);
-                    state.grabStartObjectRotation = {
-                        x: state.objectRotation.x,
-                        y: state.objectRotation.y,
-                        z: state.objectRotation.z
-                    };
-                }
-
-                // While grabbing, calculate the delta and update offset
-                // FORCE STOP drag if Double Pinching (Zooming)
-                if (state.isGrabbing && state.isPinching && !state.isDoublePinching) {
-                    // --- Translation ---
-                    // Calculate delta in normalized coords (0-1), convert to 3D world units
-                    const sensitivity = 25;
-                    const deltaX = (grabPointX - state.grabStartHandPos.x) * sensitivity;
-                    const deltaY = -(grabPointY - state.grabStartHandPos.y) * sensitivity; // Invert Y
-
-                    state.objectOffset.x = state.grabStartObjectPos.x - deltaX;
-                    state.objectOffset.y = state.grabStartObjectPos.y + deltaY;
-
-                    // --- Rotation (Hand Roll) ---
-                    // Calculate hand angle using Wrist (0) and Index MCP (5)
-                    // This vector represents the "up" direction of the hand relative to the arm
-                    const indexMCP = landmarks[5];
-                    const currentHandAngle = Math.atan2(indexMCP.y - wrist.y, indexMCP.x - wrist.x);
-
-                    // Calculate angular delta
-                    let deltaAngle = currentHandAngle - state.grabStartHandAngle;
-
-                    // Map Hand Roll -> Object Z Rotation (Roll) AND Object Y Rotation (Spin)
-                    // 'Spinning' the hand (Roll) feels like turning a dial. 
-                    // Let's map it primarily to Z (Screen Plane Roll) for disjoint manipulation,
-                    // BUT for 3D viewing, Y-rotation is often desired.
-                    // Let's do: Hand Roll -> Object Z Rotation (direct mapping)
-
-                    state.objectRotation.z = state.grabStartObjectRotation.z - deltaAngle; // Invert for natural feel
-
-                    // Bonus: Map horizontal hand movement to Y-Rotation (like spinning a globe)
-                    // if you prefer that over translation. For now, let's stick to just Z-Roll from Hand Roll
-                    // as requested "rotating my hand".
-                }
-
-                // When pinch released
-                if (!state.isPinching && wasPinching) {
-                    state.isGrabbing = false;
-                }
-
-                // Update pinch UI
-                const pinchDot = document.getElementById('pinch-dot');
-                const pinchText = document.getElementById('pinch-text');
-                if (state.isPinching) {
-                    pinchDot.classList.add('active');
-                    pinchText.innerText = state.isGrabbing ? `Grabbing...` : `Pinch: Active`;
-                } else {
-                    pinchDot.classList.remove('active');
-                    pinchText.innerText = `Pinch: ${Math.round(state.pinchStrength * 100)}%`;
-                }
-
-                // --- IRON MAN TWO-HANDED ZOOM ---
-                const zoomDot = document.getElementById('zoom-dot');
-                const zoomText = document.getElementById('zoom-text');
-
-                if (results.multiHandLandmarks.length >= 2) {
-                    state.twoHandsDetected = true;
-
-                    // Get the palm center (wrist) of both hands
-                    const hand1 = results.multiHandLandmarks[0];
-                    const hand2 = results.multiHandLandmarks[1];
-                    const palm1 = hand1[0]; // Wrist of hand 1
-                    const palm2 = hand2[0]; // Wrist of hand 2
-
-                    // Calculate distance between the two palms
-                    const handDist = Math.sqrt(
-                        Math.pow(palm1.x - palm2.x, 2) +
-                        Math.pow(palm1.y - palm2.y, 2)
-                    );
-
-                    state.twoHandDistance = handDist;
-
-                    // --- ELASTIC ZOOM (Double Pinch) ---
-                    // State is already calculated at top of loop
-                    if (state.isDoublePinching) {
-
-                        // We need the distance between hands (already calc in 'handDist')
-
-                        // First frame of Double Pinch: Set Neutral Distance
-
-                        // First frame of Double Pinch: Set Neutral Distance
                         if (state.neutralDistance === null) {
                             state.neutralDistance = handDist;
-                            zoomText.innerText = `Zoom Locked: Stretch to Zoom`;
-                            // Visual feedback color?
+                            zoomText.innerText = `Zoom Locked: Stretch/Compress`;
                         } else {
-                            // Compare current dist to neutral
                             const ratio = handDist / state.neutralDistance;
-
-                            // Deadzone (0.9 to 1.1) - Stable
-                            // Stretch (> 1.1) - Zoom In
-                            // Compress (< 0.9) - Zoom Out
-
                             let zoomSpeed = 0;
+
                             if (ratio > 1.1) {
-                                zoomSpeed = (ratio - 1.1) * 0.05; // Speed multiplier
+                                zoomSpeed = (ratio - 1.1) * 0.05;
                                 zoomText.innerText = `Zooming IN >> ${(state.twoHandScale * 100).toFixed(0)}%`;
                             } else if (ratio < 0.9) {
-                                zoomSpeed = (ratio - 0.9) * 0.05; // Negative speed
+                                zoomSpeed = (ratio - 0.9) * 0.05;
                                 zoomText.innerText = `Zooming OUT << ${(state.twoHandScale * 100).toFixed(0)}%`;
                             } else {
-                                zoomText.innerText = `Zoom Holding`;
+                                zoomText.innerText = `Zoom: ${(state.twoHandScale * 100).toFixed(0)}%`;
                             }
 
-                            // Apply Zoom
-                            state.twoHandScale += zoomSpeed * state.twoHandScale; // Proportional zoom
-                            state.twoHandScale = Math.max(0.1, Math.min(50.0, state.twoHandScale)); // Max 50x!
+                            state.twoHandScale += zoomSpeed * state.twoHandScale;
+                            state.twoHandScale = Math.max(0.1, Math.min(50.0, state.twoHandScale));
                         }
 
                         zoomDot.classList.add('active');
+                        pinchDot.classList.add('active');
+                        pinchText.innerText = 'Double Pinch Zoom';
 
-                    } else {
-                        // Reset Elastic State
+                    // --- TWO-HAND STEERING (Priority 3) ---
+                    // Activate when: one hand pinching, other hand NOT pinching (asymmetric grip)
+                    } else if (state.isPinching && !isHand2Pinching && palmDist > 0.25) {
                         state.isDoublePinching = false;
                         state.neutralDistance = null;
-
-                        // Regular UI Update
-                        zoomDot.classList.remove('active');
-                        zoomText.innerText = `Zoom: Use 2-Hand Pinch`;
-
-                        // --- Fallback: Steering or other logic ---
-                        // We removed the old "Spread Hands" zoom. 
-                        // Now we only zoom if double pinching.
-                    }
-
-                    // --- TWO-HANDED STEERING (Rotated Fists) ---
-                    // "Steering" activation: closing both hands
-                    // We need to check tension of both hands. 
-                    // To save perf, we just check simple wrist-to-middle distance approx or assume if Pinch is active on Hand 1 (already calc)
-                    // Let's do a simple check: is the user "Grabbing"? We already have state.isPinching (Hand 1). 
-                    // If Hand 1 is "Pinching/Grabbing", we assume the user intends to manipulate.
-                    // Ideally check Hand 2 too.
-
-                    // UPDATE: Only allow Steering if NOT Double Pinching (priority)
-                    if (state.isPinching && !state.isDoublePinching) {
                         state.isSteering = true;
+                        state.isGrabbing = false; // CRITICAL: Disable grab rotation conflict
 
-                        // Calculate angle between the two wrists
-                        // atan2(y2-y1, x2-x1)
                         const angle = Math.atan2(palm2.y - palm1.y, palm2.x - palm1.x);
 
-                        // On first frame of steering, record start
-                        if (state.twoHandStartAngle === null) {
+                        if (state.twoHandStartAngle === null || !wasSteering) {
                             state.twoHandStartAngle = angle;
                             state.twoHandStartObjRotation = state.objectRotation.z;
                         } else {
-                            // Calculate delta
                             const deltaAngle = angle - state.twoHandStartAngle;
-
-                            // Apply to Z rotation (Tilt)
-                            // Invert delta because Y is inverted in screen coords
-                            // sensitivity 1.0 = 1:1 rotation
                             state.objectRotation.z = state.twoHandStartObjRotation - deltaAngle;
                         }
 
-                        // zoomText.innerText = `Steering... ${zoomPercent}%`; // Fix variable reference
+                        zoomDot.classList.add('active');
+                        zoomText.innerText = 'Steering Mode';
+                        pinchDot.classList.add('active');
+                        pinchText.innerText = 'Steering...';
+
                     } else {
-                        // Open hands -> Reset steering state
+                        // No two-hand gesture active
+                        state.isDoublePinching = false;
+                        state.neutralDistance = null;
                         state.isSteering = false;
                         state.twoHandStartAngle = null;
+                        zoomDot.classList.remove('active');
+                        zoomText.innerText = 'Pinch both hands to zoom';
                     }
 
                 } else {
-                    // Only one hand - stop zooming but keep scale
-                    if (state.isZooming) {
-                        state.isZooming = false;
-                    }
+                    // --- SINGLE HAND MODE ---
+                    const wasInTwoHandMode = hadTwoHands;
                     state.twoHandsDetected = false;
+                    state.isDoublePinching = false;
                     state.isSteering = false;
                     state.twoHandStartAngle = null;
-                    state.hand2PinchStrength = state.hand2PinchStrength * 0.95; // Decay hand 2 pinch
+                    state.neutralDistance = null;
+                    state.hand2PinchStrength = state.hand2PinchStrength * 0.9;
+
                     zoomDot.classList.remove('active');
-                    zoomText.innerText = 'Zoom: Use both hands';
+                    zoomText.innerText = 'Add second hand for zoom';
+
+                    // --- RE-INITIALIZE GRAB after returning from two-hand mode ---
+                    // This fixes the "sudden jump" bug when transitioning
+                    if (wasInTwoHandMode && state.isPinching) {
+                        state.isGrabbing = true;
+                        state.grabStartHandPos = { x: grabPointX, y: grabPointY };
+                        state.grabStartObjectPos = {
+                            x: state.objectOffset.x,
+                            y: state.objectOffset.y,
+                            z: state.objectOffset.z
+                        };
+                        const indexMCP = landmarks[5];
+                        state.grabStartHandAngle = Math.atan2(indexMCP.y - wrist.y, indexMCP.x - wrist.x);
+                        state.grabStartObjectRotation = {
+                            x: state.objectRotation.x,
+                            y: state.objectRotation.y,
+                            z: state.objectRotation.z
+                        };
+                    }
+                }
+
+                // --- SINGLE-HAND GRAB-AND-DRAG (Priority 4 - Lowest) ---
+                // Only runs when NOT in any two-hand mode
+                if (!state.isSteering && !state.isDoublePinching) {
+
+                    // Pinch just started - initialize grab
+                    if (state.isPinching && !wasPinching) {
+                        state.isGrabbing = true;
+                        state.grabStartHandPos = { x: grabPointX, y: grabPointY };
+                        state.grabStartObjectPos = {
+                            x: state.objectOffset.x,
+                            y: state.objectOffset.y,
+                            z: state.objectOffset.z
+                        };
+                        const indexMCP = landmarks[5];
+                        state.grabStartHandAngle = Math.atan2(indexMCP.y - wrist.y, indexMCP.x - wrist.x);
+                        state.grabStartObjectRotation = {
+                            x: state.objectRotation.x,
+                            y: state.objectRotation.y,
+                            z: state.objectRotation.z
+                        };
+
+                        // Lock hand identity
+                        if (results.multiHandedness && results.multiHandedness.length > 0) {
+                            state.primaryHandLabel = results.multiHandedness[primaryHandIndex].label;
+                        }
+                    }
+
+                    // While grabbing - apply translation and rotation
+                    if (state.isGrabbing && state.isPinching) {
+                        const sensitivity = 25;
+                        const deltaX = (grabPointX - state.grabStartHandPos.x) * sensitivity;
+                        const deltaY = -(grabPointY - state.grabStartHandPos.y) * sensitivity;
+
+                        state.objectOffset.x = state.grabStartObjectPos.x - deltaX;
+                        state.objectOffset.y = state.grabStartObjectPos.y + deltaY;
+
+                        // Only apply rotation if NOT steering (prevent conflict)
+                        if (!state.twoHandsDetected) {
+                            const indexMCP = landmarks[5];
+                            const currentHandAngle = Math.atan2(indexMCP.y - wrist.y, indexMCP.x - wrist.x);
+                            const deltaAngle = currentHandAngle - state.grabStartHandAngle;
+                            state.objectRotation.z = state.grabStartObjectRotation.z - deltaAngle;
+                        }
+
+                        pinchDot.classList.add('active');
+                        pinchText.innerText = 'Grabbing...';
+                    }
+
+                    // Pinch released
+                    if (!state.isPinching && wasPinching) {
+                        state.isGrabbing = false;
+                        state.primaryHandLabel = null; // Release hand lock
+                    }
+                }
+
+                // Update UI for non-grabbing pinch state
+                if (!state.isGrabbing && !state.isSteering && !state.isDoublePinching) {
+                    if (state.isPinching) {
+                        pinchDot.classList.add('active');
+                        pinchText.innerText = 'Pinch: Active';
+                    } else {
+                        pinchDot.classList.remove('active');
+                        pinchText.innerText = `Pinch: ${Math.round(state.pinchStrength * 100)}%`;
+                    }
                 }
 
             } else {
+                // --- NO HANDS DETECTED ---
                 state.handDetected = false;
                 state.twoHandsDetected = false;
                 statusDot.classList.remove('active');
                 statusText.innerText = "No Hands Detected";
-                // Slow decay when hands are lost
+
+                // Gradual decay
                 state.tension = state.tension * 0.985;
                 state.pinchStrength = state.pinchStrength * 0.95;
                 state.hand2PinchStrength = state.hand2PinchStrength * 0.95;
+
+                // Reset all gesture states
                 state.isPinching = false;
                 state.isGrabbing = false;
                 state.isZooming = false;
                 state.isSteering = false;
+                state.isDoublePinching = false;
                 state.twoHandStartAngle = null;
-                document.getElementById('pinch-dot').classList.remove('active');
-                document.getElementById('pinch-text').innerText = 'Pinch: Inactive';
-                document.getElementById('zoom-dot').classList.remove('active');
-                document.getElementById('zoom-text').innerText = 'Zoom: Use both hands';
+                state.neutralDistance = null;
+                state.primaryHandLabel = null;
+
+                pinchDot.classList.remove('active');
+                pinchText.innerText = 'Pinch: Inactive';
+                zoomDot.classList.remove('active');
+                zoomText.innerText = 'Show hands to begin';
             }
         }
 
