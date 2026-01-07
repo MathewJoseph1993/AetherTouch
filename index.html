@@ -898,10 +898,7 @@
 
                     const now = performance.now();
                     const inCooldown = now < state.namasteCooldownUntil;
-                    const namasteThreshold = 0.28; // Increased for easier triggering
-
-                    // Always show palm distance for debugging
-                    zoomText.innerText = `Palms: ${(rawPalmDist * 100).toFixed(0)}% (need <${(namasteThreshold * 100).toFixed(0)}%)`;
+                    const namasteThreshold = 0.28;
 
                     if (rawPalmDist < namasteThreshold && !inCooldown) {
                         // TRIGGER RESET
