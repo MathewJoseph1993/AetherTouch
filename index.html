@@ -1191,8 +1191,8 @@
                         pinchText.innerText = 'Double Pinch Zoom';
 
                         // --- TWO-HAND STEERING (Priority 3) ---
-                        // Activate when: one hand pinching, other hand NOT pinching (asymmetric grip)
-                    } else if (state.isPinching && !isHand2Pinching && palmDist > 0.25) {
+                        // Activate when: exactly ONE hand is pinching (XOR condition)
+                    } else if ((state.isPinching !== isHand2Pinching) && palmDist > 0.25) {
                         state.isDoublePinching = false;
                         state.neutralDistance = null;
                         state.isSteering = true;
