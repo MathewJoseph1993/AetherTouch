@@ -224,6 +224,10 @@
         <!-- Webcam Feed (HUD Style) -->
         <video id="video-feed" playsinline></video>
 
+        <div id="fps-counter"
+            style="position: absolute; top: 10px; left: 10px; font-family: monospace; font-size: 12px; color: #00ff88; background: rgba(0,0,0,0.5); padding: 4px 8px; border-radius: 4px;">
+            FPS: --</div>
+
         <p class="status">
             <span class="status-dot" id="status-dot"></span>
             <span id="status-text">Detecting Hands...</span>
@@ -379,8 +383,9 @@
         ]);
 
         // --- Configuration & State ---
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         const config = {
-            particleCount: 5000,
+            particleCount: isMobile ? 2000 : 5000,
             baseSize: 0.15,
             lerpSpeed: 0.05,
             handInteractionStrength: 2.0,
@@ -706,15 +711,25 @@
         const statusDot = document.getElementById('status-dot');
         const statusText = document.getElementById('status-text');
 
+
+        // Global Cache for Hot Path
+        const uiElements = {
+            loader: document.getElementById('loader'),
+            pinchDot: document.getElementById('pinch-dot'),
+            pinchText: document.getElementById('pinch-text'),
+            zoomDot: document.getElementById('zoom-dot'),
+            zoomText: document.getElementById('zoom-text')
+        };
+
+        // Pre-allocated array to avoid GC in loop
+        const fpLandmarks = new Array(21).fill(0).map(() => [0, 0, 0]);
+
         function onResults(results) {
             // Hide loader on first result
-            document.getElementById('loader').classList.add('hidden');
+            uiElements.loader.classList.add('hidden');
 
             // Cache UI elements (avoid repeated DOM queries)
-            const pinchDot = document.getElementById('pinch-dot');
-            const pinchText = document.getElementById('pinch-text');
-            const zoomDot = document.getElementById('zoom-dot');
-            const zoomText = document.getElementById('zoom-text');
+            const { pinchDot, pinchText, zoomDot, zoomText } = uiElements;
 
             if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
                 state.handDetected = true;
@@ -747,7 +762,12 @@
 
                 // --- Fingerpose Gesture Detection ---
                 // Convert MediaPipe landmarks to Fingerpose format [[x,y,z], ...]
-                const fpLandmarks = landmarks.map(lm => [lm.x * 640, lm.y * 480, lm.z * 100]);
+                // Optimized: Fill pre-allocated array
+                for (let i = 0; i < landmarks.length; i++) {
+                    fpLandmarks[i][0] = landmarks[i].x * 640;
+                    fpLandmarks[i][1] = landmarks[i].y * 480;
+                    fpLandmarks[i][2] = landmarks[i].z * 100;
+                }
                 const gestureResult = gestureEstimator.estimate(fpLandmarks, 7.0); // Min confidence 7.0
 
                 // Update gesture scores (smoothed)
@@ -901,6 +921,7 @@
                     const namasteThreshold = 0.28;
 
                     if (rawPalmDist < namasteThreshold && !inCooldown) {
+                        console.log('Namaste Reset Triggered!');
                         // TRIGGER RESET
                         state.objectOffset = { x: 0, y: 0, z: 0 };
                         state.objectRotation = { x: 0, y: 0, z: 0 };
@@ -964,8 +985,8 @@
                         pinchDot.classList.add('active');
                         pinchText.innerText = 'Double Pinch Zoom';
 
-                    // --- TWO-HAND STEERING (Priority 3) ---
-                    // Activate when: one hand pinching, other hand NOT pinching (asymmetric grip)
+                        // --- TWO-HAND STEERING (Priority 3) ---
+                        // Activate when: one hand pinching, other hand NOT pinching (asymmetric grip)
                     } else if (state.isPinching && !isHand2Pinching && palmDist > 0.25) {
                         state.isDoublePinching = false;
                         state.neutralDistance = null;
@@ -1184,9 +1205,35 @@
             });
 
 
+        // --- FPS Monitoring ---
+        let frameCount = 0;
+        let lastTimeFps = performance.now();
+        let activeParticleCount = config.particleCount;
+
         // --- Animation Loop ---
         function animate() {
             requestAnimationFrame(animate);
+
+            // FPS Counter & Optimization
+            frameCount++;
+            const currentTime = performance.now();
+            if (currentTime - lastTimeFps >= 1000) {
+                const fps = frameCount;
+                document.getElementById('fps-counter').innerText = `FPS: ${fps}`;
+
+                // Auto-optimize if framerate drops below 30
+                // DISABLED: Causing visual glitches (chopping structured shapes like Saturn)
+                /* 
+                if (fps < 30 && activeParticleCount > 1000) {
+                    activeParticleCount = Math.max(1000, activeParticleCount - 500);
+                    geometry.setDrawRange(0, activeParticleCount);
+                    console.log(`Low FPS (${fps}). Reducing particles to ${activeParticleCount}`);
+                }
+                */
+
+                frameCount = 0;
+                lastTimeFps = currentTime;
+            }
 
             const positionAttribute = geometry.attributes.position;
             const currentPositions = positionAttribute.array;
