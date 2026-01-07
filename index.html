@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AetherTouch - Interactive 3D Particles</title>
+
     <style>
         :root {
             --primary-color: #00f3ff;
@@ -31,6 +32,22 @@
             width: 100vw;
             height: 100vh;
             z-index: 1;
+        }
+
+        /* Error Logger (Debug) */
+        #error-log {
+            position: absolute;
+            top: 20%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 0, 0, 0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 9999;
+            display: none;
+            max-width: 80%;
+            font-family: monospace;
         }
 
         /* --- ZEN MODE UI --- */
@@ -75,13 +92,13 @@
             display: block;
         }
 
-        /* Video Feed - Mini Circle */
+        /* Video Feed - Mini Rectangle */
         #video-container {
             pointer-events: auto;
             position: relative;
-            width: 80px;
-            height: 80px;
-            border-radius: 50%;
+            width: 160px;
+            height: 120px;
+            border-radius: 12px;
             overflow: hidden;
             border: 2px solid var(--primary-color);
             box-shadow: 0 0 15px var(--primary-color);
@@ -90,7 +107,7 @@
         }
 
         #video-container:hover {
-            transform: scale(1.1);
+            transform: scale(1.05);
         }
 
         #video-container.collapsed {
@@ -522,6 +539,13 @@
         </div>
     </div>
 
+    <!-- Tooltip (Holographic Data) -->
+    <div id="data-tooltip"
+        style="position: absolute; display: none; background: rgba(0,0,0,0.8); color: white; padding: 10px; border: 1px solid #00f3ff; border-radius: 8px; pointer-events: none; z-index: 1000; font-family: monospace;">
+        <div id="tt-title" style="font-weight: bold; color: #00f3ff; margin-bottom: 5px;"></div>
+        <div id="tt-value"></div>
+    </div>
+
     <!-- Canvas -->
     <div id="canvas-container"></div>
 
@@ -550,7 +574,9 @@
             <span class="dock-label">Views</span>
             <button class="tpl-btn" data-shape="sphere">Sphere</button>
             <button class="tpl-btn" data-shape="saturn">Saturn</button>
-            <button class="tpl-btn" data-shape="funnel">Revenue Funnel (New)</button>
+            <button class="tpl-btn" data-shape="funnel">Revenue Funnel</button>
+            <button class="tpl-btn" data-shape="globe">Global Command</button>
+            <button class="tpl-btn" data-shape="journey">Journey Flow (New)</button>
         </div>
 
         <!-- Color Section -->
@@ -573,6 +599,18 @@
     </div>
 
     <script>
+        // Global Error Handler
+        window.onerror = function (msg, url, line, col, error) {
+            const errorLog = document.getElementById('error-log');
+            if (errorLog) {
+                errorLog.style.display = 'block';
+                errorLog.innerHTML += `<div>Error: ${msg} <br> Line: ${line}</div>`;
+            }
+            console.error("Critical Error", msg, error);
+            document.getElementById('loader').innerText = "Error Loading App";
+            return false;
+        };
+
         // --- One Euro Filter (Industry-standard smoothing for gesture tracking) ---
         // Reduces jitter while maintaining responsiveness
         class OneEuroFilter {
@@ -653,6 +691,11 @@
                 this.lastChangeTime = 0;
             }
         }
+
+        // --- Tooltip Elements ---
+        const tooltip = document.getElementById('data-tooltip');
+        const ttTitle = document.getElementById('tt-title');
+        const ttValue = document.getElementById('tt-value');
 
         // --- Fingerpose Custom Gesture Definitions ---
         const Finger = fp.Finger;
@@ -990,6 +1033,69 @@
                     const x = radius * Math.cos(angle);
                     const z = radius * Math.sin(angle);
                     const y = h;
+
+                    setTarget(i, x, y, z);
+                }
+            },
+            globe: () => {
+                // Global Command Center (Geo-Sphere with Hotspots)
+                const R = 6;
+
+                // Define hotspots (Lat/Lon in radians)
+                // approximating: US (North/West), Europe (North/East), APAC (South/East)
+                const hotspots = [
+                    { theta: 1.5, phi: 1.2, strength: 0.4 }, // US-ish
+                    { theta: 5.0, phi: 1.0, strength: 0.3 }, // Europe-ish
+                    { theta: 3.5, phi: 2.2, strength: 0.3 }  // APAC-ish
+                ];
+
+                for (let i = 0; i < config.particleCount; i++) {
+                    let theta, phi;
+
+                    // 70% of particles form the base sphere (World background)
+                    if (Math.random() > 0.3) {
+                        phi = Math.acos(-1 + (2 * Math.random()));
+                        theta = Math.sqrt(config.particleCount * Math.PI) * phi;
+                    } else {
+                        // 30% cluster around hotspots (Active Markets)
+                        const region = hotspots[Math.floor(Math.random() * hotspots.length)];
+                        theta = region.theta + (Math.random() - 0.5) * 0.5;
+                        phi = region.phi + (Math.random() - 0.5) * 0.5;
+                    }
+
+                    const x = R * Math.cos(theta) * Math.sin(phi);
+                    const y = R * Math.sin(theta) * Math.sin(phi);
+                    const z = R * Math.cos(phi);
+                    setTarget(i, x, y, z);
+                }
+            },
+            journey: () => {
+                // Customer Journey Flow (Splines/Curves)
+                // Left (-10) to Right (+10) Flow
+
+                // 3 Channels merging into 1
+                for (let i = 0; i < config.particleCount; i++) {
+                    // We'll define x linearly from left to right
+                    // But scatter them a bit for volume
+                    const t = Math.random();
+                    const x = (t * 20) - 10;
+
+                    // Y determines the 'channel' based on x
+                    let y = 0;
+                    let z = 0;
+
+                    // Logistic Sigmoid for merging: 1 / (1 + e^-k(x-x0))
+                    // Merging happens around x = -2
+                    const mergeFactor = 1 / (1 + Math.exp(x + 2)); // High at left, 0 at right
+
+                    // Randomly assign to a branch
+                    const branchID = Math.floor(Math.random() * 3);
+
+                    if (branchID === 0) y = 5 * mergeFactor + Math.sin(x) * 0.5; // Top Branch
+                    if (branchID === 1) y = 0 + Math.sin(x * 1.2) * 0.5;           // Mid Branch
+                    if (branchID === 2) y = -5 * mergeFactor + Math.sin(x * 0.8) * 0.5; // Bot Branch
+
+                    z = (Math.random() - 0.5) * 2; // Thickness
 
                     setTarget(i, x, y, z);
                 }
@@ -1581,7 +1687,6 @@
         const cameraUtils = new Camera(videoElement, {
             onFrame: async () => {
                 await hands.send({ image: videoElement });
-                await faceMesh.send({ image: videoElement });
             },
             width: 640,
             height: 480
@@ -1752,8 +1857,38 @@
             // --- Color Logic with Visual Feedback ---
             let targetColor = state.baseColor.clone();
 
+            // DATA DRIVEN COLORING (New)
+            // Override base color if in specific data modes
+            if (state.currentShape === 'funnel') {
+                // Gradient based on Height (Y)
+                // We need access to the particle's target Y or current Y.
+                // Since this loop is per-frame global, we can't easily color per-particle HERE 
+                // unless we use a Shader or Vertex Colors.
+                // Three.js PointsMaterial 'color' is global.
+                // To do per-particle colors, we need to switch to Vertex Colors.
+
+                // For this demo (MVP), we will shift the GLOBAL color based on interaction
+                // OR we can't do per-node color without BufferGeometry attribute updates.
+
+                // DECISION: To keep it simple/performant: 
+                // We stick to Global Color shifting for now.
+                // Funnel: Shifts to Gold when "grabbing" (Reaching revenue).
+
+                if (state.isGrabbing) {
+                    targetColor.setHex(0xffd700); // Gold (Revenue)
+                } else {
+                    targetColor.setHex(0x00f3ff); // Cyan (Leads)
+                }
+
+            } else if (state.currentShape === 'globe') {
+                if (state.isGrabbing) {
+                    targetColor.setHex(0x00ff88); // Green (Global Growth)
+                }
+            }
+
+            // Standard Interactions (overrides only if not set above or mixing)
             // Color shift during grab (warmer tint)
-            if (state.isGrabbing) {
+            if (state.isGrabbing && state.currentShape !== 'funnel') {
                 const grabTint = new THREE.Color(0xffaa44); // Warm orange
                 targetColor.lerp(grabTint, 0.3);
             }
@@ -1806,6 +1941,49 @@
 
             // Smooth size transition
             material.size += (targetSize - material.size) * 0.1;
+
+            // --- Data Tooltip Logic ---
+            const tooltip = document.getElementById('data-tooltip');
+            const ttTitle = document.getElementById('tooltip-title');
+            const ttValue = document.getElementById('tooltip-value');
+
+            // Show tooltip when interacting (Grabbing)
+            if (state.isGrabbing) {
+                // Get 2D Screen Position of the Object Center (roughly)
+                // We use the last grab position (screen space? No, 3D space)
+                const vector = new THREE.Vector3(state.objectOffset.x, state.objectOffset.y, state.objectOffset.z);
+
+                // Project 3D vector to 2D screen
+                vector.project(camera);
+
+                const x = (vector.x * .5 + .5) * window.innerWidth;
+                const y = (-(vector.y * .5) + .5) * window.innerHeight;
+
+                tooltip.style.display = 'block';
+                tooltip.style.left = `${x}px`;
+                tooltip.style.top = `${y}px`;
+
+                // Update Content based on Mode
+                if (state.currentShape === 'funnel') {
+                    ttTitle.innerText = "Revenue Forecast";
+                    ttValue.innerText = "Value: $1.2M (Projected)";
+                    tooltip.style.borderColor = "#ffd700"; // Gold
+                } else if (state.currentShape === 'globe') {
+                    ttTitle.innerText = "Regional Growth";
+                    ttValue.innerText = "EMEA: +24% YoY";
+                    tooltip.style.borderColor = "#00ff88"; // Green
+                } else if (state.currentShape === 'journey') {
+                    ttTitle.innerText = "Conversion Rate";
+                    ttValue.innerText = "Funnel: 3.4% (Avg)";
+                    tooltip.style.borderColor = "#00f3ff"; // Cyan
+                } else {
+                    ttTitle.innerText = "System Status";
+                    ttValue.innerText = "Particles: " + activeParticleCount;
+                    tooltip.style.borderColor = "#00f3ff";
+                }
+            } else {
+                tooltip.style.display = 'none';
+            }
 
             renderer.render(scene, camera);
         }
