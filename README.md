@@ -77,4 +77,4 @@ Contributions are welcome! Please fork the repository and submit a pull request 
 This project is open-source and available under the [MIT License](LICENSE).
 
 ---
-*Built with ❤️ and ☕ by Mathew Joseph*
+*Built with ❤️ and ☕ by [Mathew Joseph](https://www.linkedin.com/in/gtm-engineer-mathew/)*
