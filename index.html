@@ -796,16 +796,25 @@
                         zoomDot.classList.remove('active');
                         zoomText.innerText = `Zoom: Use 2-Hand Pinch`;
 
-                        // Reset Steering too (since we're not double pinching)
-                        state.isSteering = false;
-                        state.twoHandStartAngle = null;
+                        // --- Fallback: Steering or other logic ---
+                        // We removed the old "Spread Hands" zoom. 
+                        // Now we only zoom if double pinching.
                     }
 
-                    // --- STEERING (Runs alongside Zoom when Double Pinching) ---
-                    if (state.isDoublePinching) {
+                    // --- TWO-HANDED STEERING (Rotated Fists) ---
+                    // "Steering" activation: closing both hands
+                    // We need to check tension of both hands. 
+                    // To save perf, we just check simple wrist-to-middle distance approx or assume if Pinch is active on Hand 1 (already calc)
+                    // Let's do a simple check: is the user "Grabbing"? We already have state.isPinching (Hand 1). 
+                    // If Hand 1 is "Pinching/Grabbing", we assume the user intends to manipulate.
+                    // Ideally check Hand 2 too.
+
+                    // UPDATE: Only allow Steering if NOT Double Pinching (priority)
+                    if (state.isPinching && !state.isDoublePinching) {
                         state.isSteering = true;
 
                         // Calculate angle between the two wrists
+                        // atan2(y2-y1, x2-x1)
                         const angle = Math.atan2(palm2.y - palm1.y, palm2.x - palm1.x);
 
                         // On first frame of steering, record start
@@ -815,26 +824,34 @@
                         } else {
                             // Calculate delta
                             const deltaAngle = angle - state.twoHandStartAngle;
+
                             // Apply to Z rotation (Tilt)
+                            // Invert delta because Y is inverted in screen coords
+                            // sensitivity 1.0 = 1:1 rotation
                             state.objectRotation.z = state.twoHandStartObjRotation - deltaAngle;
                         }
+
+                        // zoomText.innerText = `Steering... ${zoomPercent}%`; // Fix variable reference
+                    } else {
+                        // Open hands -> Reset steering state
+                        state.isSteering = false;
+                        state.twoHandStartAngle = null;
                     }
 
                 } else {
-                    // Only 1 hand detected - reset two-hand specific state only
-                    // Keep handDetected = true (set at line 542) since we still have 1 hand
+                    // Only one hand - stop zooming but keep scale
+                    if (state.isZooming) {
+                        state.isZooming = false;
+                    }
                     state.twoHandsDetected = false;
-                    state.isZooming = false;
                     state.isSteering = false;
                     state.twoHandStartAngle = null;
                     state.hand2PinchStrength = state.hand2PinchStrength * 0.95; // Decay hand 2 pinch
-                    document.getElementById('zoom-dot').classList.remove('active');
-                    document.getElementById('zoom-text').innerText = 'Zoom: Use both hands';
+                    zoomDot.classList.remove('active');
+                    zoomText.innerText = 'Zoom: Use both hands';
                 }
-            }
 
-            // Handle true "no hands" case - when no hands are detected at all
-            if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
+            } else {
                 state.handDetected = false;
                 state.twoHandsDetected = false;
                 statusDot.classList.remove('active');
@@ -853,182 +870,185 @@
                 document.getElementById('zoom-dot').classList.remove('active');
                 document.getElementById('zoom-text').innerText = 'Zoom: Use both hands';
             }
+        }
 
-            const hands = new Hands({
-                locateFile: (file) => {
-                    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
-                }
+        const hands = new Hands({
+            locateFile: (file) => {
+                return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+            }
+        });
+
+        hands.setOptions({
+            maxNumHands: 2,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
+        });
+
+        hands.onResults(onResults);
+
+        // Webcam initialization
+        const cameraUtils = new Camera(videoElement, {
+            onFrame: async () => {
+                await hands.send({ image: videoElement });
+            },
+            width: 640,
+            height: 480
+        });
+
+        cameraUtils.start()
+            .then(() => console.log('Camera started'))
+            .catch(err => {
+                console.error('Camera error', err);
+                statusText.innerText = "Camera Access Denied";
+                document.getElementById('loader').classList.add('hidden');
             });
 
-            hands.setOptions({
-                maxNumHands: 2,
-                modelComplexity: 1,
-                minDetectionConfidence: 0.5,
-                minTrackingConfidence: 0.5
-            });
 
-            hands.onResults(onResults);
+        // --- Animation Loop ---
+        function animate() {
+            requestAnimationFrame(animate);
 
-            // Webcam initialization
-            const cameraUtils = new Camera(videoElement, {
-                onFrame: async () => {
-                    await hands.send({ image: videoElement });
-                },
-                width: 640,
-                height: 480
-            });
+            const positionAttribute = geometry.attributes.position;
+            const currentPositions = positionAttribute.array;
 
-            cameraUtils.start()
-                .then(() => console.log('Camera started'))
-                .catch(err => {
-                    console.error('Camera error', err);
-                    statusText.innerText = "Camera Access Denied";
-                    document.getElementById('loader').classList.add('hidden');
-                });
+            // Time for idle animation
+            state.time += 0.01;
 
+            // Determine Scale Factor based on Hand Tension
+            // High tension (fist) = Contract/Small or Explode? 
+            // Requirements: "detect tension... Map this to: Scaling... Expansion/contraction"
+            // Let's make High Tension = Expansion (Power up) or Contraction (Crush).
+            // Let's go with: Open Hand = Relaxed (Normal Size), Closed Hand = High Tension (Particles contract tightly and shake)
 
-            // --- Animation Loop ---
-            function animate() {
-                requestAnimationFrame(animate);
+            // Actually, usually "Opening hand" feels like expansion.
+            // Let's do: Closed Fist = Contract/condense to center. Open Hand = Expand beyond normal.
 
-                const positionAttribute = geometry.attributes.position;
-                const currentPositions = positionAttribute.array;
+            // Base scale is 1.0
+            // Tension 1.0 (Closed) -> Scale 0.5
+            // Tension 0.0 (Open) -> Scale 1.5
+            // But if hands not detected, default to 1.0 idle breathing
 
-                // Time for idle animation
-                state.time += 0.01;
+            let targetScaleFactor = 1.0;
+            if (state.handDetected) {
+                // Map tension (0..1) to scale
+                // Tension 0 (Open) -> 1.5
+                // Tension 1 (Closed) -> 0.4
+                targetScaleFactor = 1.5 - (state.tension * 1.1);
+            } else {
+                // Idle breathing
+                targetScaleFactor = 1.0 + Math.sin(state.time) * 0.1;
+            }
+            // Smooth transition to target scale factor (prevents sudden jumps)
+            state.lastScaleFactor += (targetScaleFactor - state.lastScaleFactor) * 0.08;
+            const scaleFactor = state.lastScaleFactor;
 
-                // Determine Scale Factor based on Hand Tension
-                // High tension (fist) = Contract/Small or Explode? 
-                // Requirements: "detect tension... Map this to: Scaling... Expansion/contraction"
-                // Let's make High Tension = Expansion (Power up) or Contraction (Crush).
-                // Let's go with: Open Hand = Relaxed (Normal Size), Closed Hand = High Tension (Particles contract tightly and shake)
+            // Loop through particles
+            for (let i = 0; i < config.particleCount; i++) {
+                const ix = i * 3;
+                const iy = i * 3 + 1;
+                const iz = i * 3 + 2;
 
-                // Actually, usually "Opening hand" feels like expansion.
-                // Let's do: Closed Fist = Contract/condense to center. Open Hand = Expand beyond normal.
+                // 1. Interpolate towards target shape
+                const tx = targetPositions[ix];
+                const ty = targetPositions[iy];
+                const tz = targetPositions[iz];
 
-                // Base scale is 1.0
-                // Tension 1.0 (Closed) -> Scale 0.5
-                // Tension 0.0 (Open) -> Scale 1.5
-                // But if hands not detected, default to 1.0 idle breathing
+                // Lerp current to target
+                currentPositions[ix] += (tx - currentPositions[ix]) * config.lerpSpeed;
+                currentPositions[iy] += (ty - currentPositions[iy]) * config.lerpSpeed;
+                currentPositions[iz] += (tz - currentPositions[iz]) * config.lerpSpeed;
 
-                let targetScaleFactor = 1.0;
-                if (state.handDetected) {
-                    // Map tension (0..1) to scale
-                    // Tension 0 (Open) -> 1.5
-                    // Tension 1 (Closed) -> 0.4
-                    targetScaleFactor = 1.5 - (state.tension * 1.1);
-                } else {
-                    // Idle breathing
-                    targetScaleFactor = 1.0 + Math.sin(state.time) * 0.1;
-                }
-                // Smooth transition to target scale factor (prevents sudden jumps)
-                state.lastScaleFactor += (targetScaleFactor - state.lastScaleFactor) * 0.08;
-                const scaleFactor = state.lastScaleFactor;
+                // 2. Apply Interaction (Scale/Explode based on tension)
+                // We modify the rendered position relative to center (0,0,0) or center of mass?
+                // Simple scaling around (0,0,0)
 
-                // Loop through particles
-                for (let i = 0; i < config.particleCount; i++) {
-                    const ix = i * 3;
-                    const iy = i * 3 + 1;
-                    const iz = i * 3 + 2;
+                // We don't overwrite the buffer 'currentPositions' with the scaled version permanently, 
+                // otherwise it drifts. We apply the scale to the coordinate we write back, 
+                // BUT we need 'currentPositions' to store the shape state.
 
-                    // 1. Interpolate towards target shape
-                    const tx = targetPositions[ix];
-                    const ty = targetPositions[iy];
-                    const tz = targetPositions[iz];
+                // Solution: We update 'currentPositions' to move towards 'targetPositions'. 
+                // BUT, to render the scale effect, we might need to update the actual geometry 
+                // differently or apply a global scale to the Object3D.
 
-                    // Lerp current to target
-                    currentPositions[ix] += (tx - currentPositions[ix]) * config.lerpSpeed;
-                    currentPositions[iy] += (ty - currentPositions[iy]) * config.lerpSpeed;
-                    currentPositions[iz] += (tz - currentPositions[iz]) * config.lerpSpeed;
-
-                    // 2. Apply Interaction (Scale/Explode based on tension)
-                    // We modify the rendered position relative to center (0,0,0) or center of mass?
-                    // Simple scaling around (0,0,0)
-
-                    // We don't overwrite the buffer 'currentPositions' with the scaled version permanently, 
-                    // otherwise it drifts. We apply the scale to the coordinate we write back, 
-                    // BUT we need 'currentPositions' to store the shape state.
-
-                    // Solution: We update 'currentPositions' to move towards 'targetPositions'. 
-                    // BUT, to render the scale effect, we might need to update the actual geometry 
-                    // differently or apply a global scale to the Object3D.
-
-                    // Applying global scale to the Points object is most efficient and smooth.
-                    // However, the requirement says "Map tension to... Scaling of the entire particle group".
-                    // Yes, valid.
-                }
-
-                // Update Geometry
-                positionAttribute.needsUpdate = true;
-
-                // Apply Scale & Rotation
-
-                // Auto-rotate ONLY if not grabbing
-                if (!state.isGrabbing) {
-                    state.objectRotation.y += 0.002;
-                }
-
-                // Apply proper rotations from state
-                // Lerp towards the state rotation for smoothness
-                // We use a simple lerp on Euler angles (works fine for small increments)
-                particles.rotation.x = state.objectRotation.x;
-                particles.rotation.y = state.objectRotation.y;
-                particles.rotation.z = state.objectRotation.z;
-
-                // Smoothly interpolate the object scale (0.05 for very smooth transitions)
-                // Priority: Two-handed zoom > Grab (Stable) > PERSISTED ZOOM (Default)
-
-                // Default: Persist the last known zoom level
-                let finalScale = Math.max(state.twoHandScale, 1.0);
-
-                // If we are double pinching, we are actively zooming, so 'state.twoHandScale' is updating live.
-                // If we are idle (Namaste reset or fresh start), twoHandScale is 1.0.
-
-                // Fallback for visual flair: If at 1.0 scale and squeezing hand (high tension), maybe shrink slightly?
-                // Optional: if (state.twoHandScale === 1.0) finalScale = scaleFactor;
-
-                particles.scale.lerp(new THREE.Vector3(finalScale, finalScale, finalScale), 0.08);
-
-                // --- Color Logic ---
-                // Keep the selected color (no pink shift)
-                material.color.lerp(state.baseColor, 0.1);
-
-                // --- Apply Grab Offset (Pinch-and-Drag) ---
-                // Smoothly lerp the particle group position towards the target offset
-                const targetX = state.objectOffset.x;
-                const targetY = state.objectOffset.y;
-
-                // Add jitter if high tension (but not when grabbing)
-                let jitterX = 0, jitterY = 0;
-                if (state.tension > 0.8 && !state.isGrabbing) {
-                    jitterX = (Math.random() - 0.5) * 0.2;
-                    jitterY = (Math.random() - 0.5) * 0.2;
-                }
-
-                // Smooth position update
-                particles.position.x += ((targetX + jitterX) - particles.position.x) * 0.1;
-                particles.position.y += ((targetY + jitterY) - particles.position.y) * 0.1;
-
-                renderer.render(scene, camera);
+                // Applying global scale to the Points object is most efficient and smooth.
+                // However, the requirement says "Map tension to... Scaling of the entire particle group".
+                // Yes, valid.
             }
 
-            animate();
+            // Update Geometry
+            positionAttribute.needsUpdate = true;
 
-            // --- Keyboard Controls ---
-            window.addEventListener('keydown', (e) => {
-                if (e.code === 'Space') {
-                    // RESET (Same as Namaste)
-                    state.objectOffset = { x: 0, y: 0, z: 0 };
-                    state.objectRotation = { x: 0, y: 0, z: 0 };
-                    state.twoHandScale = 1.0;
-                    state.neutralDistance = null;
-                    state.isGrabbing = false;
-                    state.isDoublePinching = false;
+            // Apply Scale & Rotation
 
-                    const zoomText = document.getElementById('status-text');
-                    if (zoomText) zoomText.innerText = "System Reset";
-                }
-            });
+            // Auto-rotate ONLY if not grabbing
+            if (!state.isGrabbing) {
+                state.objectRotation.y += 0.002;
+            }
+
+            // Apply proper rotations from state
+            // Lerp towards the state rotation for smoothness
+            // We use a simple lerp on Euler angles (works fine for small increments)
+            particles.rotation.x = state.objectRotation.x;
+            particles.rotation.y = state.objectRotation.y;
+            particles.rotation.z = state.objectRotation.z;
+
+            // Smoothly interpolate the object scale (0.05 for very smooth transitions)
+            // Priority: Two-handed zoom > Grab (Stable) > Single-hand tension > Idle
+            let finalScale = scaleFactor;
+
+            if (state.twoHandsDetected) {
+                // Iron Man Zoom
+                finalScale = state.twoHandScale;
+            } else if (state.isGrabbing) {
+                // STABLE GRAB: When holding the object, keep it at a stable size
+                // We use the last known zoom scale (or default 1.0) so it doesn't shrink
+                finalScale = Math.max(state.twoHandScale, 1.0);
+            }
+            // Else fall back to 'scaleFactor' (Textion/Idle)
+
+            particles.scale.lerp(new THREE.Vector3(finalScale, finalScale, finalScale), 0.08);
+
+            // --- Color Logic ---
+            // Keep the selected color (no pink shift)
+            material.color.lerp(state.baseColor, 0.1);
+
+            // --- Apply Grab Offset (Pinch-and-Drag) ---
+            // Smoothly lerp the particle group position towards the target offset
+            const targetX = state.objectOffset.x;
+            const targetY = state.objectOffset.y;
+
+            // Add jitter if high tension (but not when grabbing)
+            let jitterX = 0, jitterY = 0;
+            if (state.tension > 0.8 && !state.isGrabbing) {
+                jitterX = (Math.random() - 0.5) * 0.2;
+                jitterY = (Math.random() - 0.5) * 0.2;
+            }
+
+            // Smooth position update
+            particles.position.x += ((targetX + jitterX) - particles.position.x) * 0.1;
+            particles.position.y += ((targetY + jitterY) - particles.position.y) * 0.1;
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // --- Keyboard Controls ---
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                // RESET (Same as Namaste)
+                state.objectOffset = { x: 0, y: 0, z: 0 };
+                state.objectRotation = { x: 0, y: 0, z: 0 };
+                state.twoHandScale = 1.0;
+                state.neutralDistance = null;
+                state.isGrabbing = false;
+                state.isDoublePinching = false;
+
+                const zoomText = document.getElementById('status-text');
+                if (zoomText) zoomText.innerText = "System Reset";
+            }
+        });
 
     </script>
 </body>
