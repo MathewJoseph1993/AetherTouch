@@ -385,8 +385,8 @@
             lerpSpeed: 0.05,
             handInteractionStrength: 2.0,
             // Pinch detection with hysteresis (different thresholds for enter/exit)
-            pinchEnterThreshold: 0.65,
-            pinchExitThreshold: 0.50,
+            pinchEnterThreshold: 0.55,  // Lowered from 0.65 for easier triggering
+            pinchExitThreshold: 0.40,   // Lowered from 0.50
             // Gesture timing
             gestureEnterDelay: 60,   // ms to wait before activating gesture
             gestureExitDelay: 120    // ms to wait before deactivating gesture
@@ -800,9 +800,9 @@
                 const pinchNorm = (pinchDist - pinchMin) / (pinchMax - pinchMin);
                 let rawPinchStrength = 1 - Math.max(0, Math.min(1, pinchNorm));
 
-                // Combine distance-based detection with Fingerpose score
-                const fpPinchScore = state.gestureScores.pinch / 10; // Normalize to 0-1
-                rawPinchStrength = rawPinchStrength * 0.6 + fpPinchScore * 0.4; // 60% distance, 40% Fingerpose
+                // Fingerpose as optional boost (not replacement) - keeps original detection working
+                const fpPinchBoost = state.gestureScores.pinch / 10 * 0.15; // Up to 15% boost
+                rawPinchStrength = Math.min(1, rawPinchStrength + fpPinchBoost);
                 state.pinchStrength = state.pinchStrength * 0.85 + rawPinchStrength * 0.15;
 
                 const wasPinching = state.isPinching;
@@ -860,9 +860,9 @@
                     const h2PinchNorm = (h2PinchDist - h2PinchMin) / (h2PinchMax - h2PinchMin);
                     let h2RawPinchStrength = 1 - Math.max(0, Math.min(1, h2PinchNorm));
 
-                    // Combine with Fingerpose score for hand 2
-                    const fp2PinchScore = state.gestureScores2.pinch / 10;
-                    h2RawPinchStrength = h2RawPinchStrength * 0.6 + fp2PinchScore * 0.4;
+                    // Fingerpose as optional boost for hand 2
+                    const fp2PinchBoost = state.gestureScores2.pinch / 10 * 0.15;
+                    h2RawPinchStrength = Math.min(1, h2RawPinchStrength + fp2PinchBoost);
                     state.hand2PinchStrength = state.hand2PinchStrength * 0.85 + h2RawPinchStrength * 0.15;
 
                     // Hand 2 pinch with hysteresis and debouncing
@@ -1108,10 +1108,11 @@
                 if (!state.isGrabbing && !state.isSteering && !state.isDoublePinching) {
                     if (state.isPinching) {
                         pinchDot.classList.add('active');
-                        pinchText.innerText = 'Pinch: Active';
+                        pinchText.innerText = 'Pinch: Active ✓';
                     } else {
                         pinchDot.classList.remove('active');
-                        pinchText.innerText = `Pinch: ${Math.round(state.pinchStrength * 100)}%`;
+                        // Show pinch strength vs threshold for debugging
+                        pinchText.innerText = `Pinch: ${Math.round(state.pinchStrength * 100)}% (need >${Math.round(config.pinchEnterThreshold * 100)}%)`;
                     }
                 }
 
