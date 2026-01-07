@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AetherTouch - Interactive 3D Particles</title>
+
     <style>
         :root {
             --primary-color: #00f3ff;
@@ -31,6 +32,22 @@
             width: 100vw;
             height: 100vh;
             z-index: 1;
+        }
+
+        /* Error Logger (Debug) */
+        #error-log {
+            position: absolute;
+            top: 20%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 0, 0, 0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 9999;
+            display: none;
+            max-width: 80%;
+            font-family: monospace;
         }
 
         /* --- ZEN MODE UI --- */
@@ -75,13 +92,13 @@
             display: block;
         }
 
-        /* Video Feed - Mini Circle */
+        /* Video Feed - Mini Rectangle */
         #video-container {
             pointer-events: auto;
             position: relative;
-            width: 80px;
-            height: 80px;
-            border-radius: 50%;
+            width: 160px;
+            height: 120px;
+            border-radius: 12px;
             overflow: hidden;
             border: 2px solid var(--primary-color);
             box-shadow: 0 0 15px var(--primary-color);
@@ -90,7 +107,7 @@
         }
 
         #video-container:hover {
-            transform: scale(1.1);
+            transform: scale(1.05);
         }
 
         #video-container.collapsed {
@@ -522,6 +539,13 @@
         </div>
     </div>
 
+    <!-- Tooltip (Holographic Data) -->
+    <div id="data-tooltip"
+        style="position: absolute; display: none; background: rgba(0,0,0,0.8); color: white; padding: 10px; border: 1px solid #00f3ff; border-radius: 8px; pointer-events: none; z-index: 1000; font-family: monospace;">
+        <div id="tt-title" style="font-weight: bold; color: #00f3ff; margin-bottom: 5px;"></div>
+        <div id="tt-value"></div>
+    </div>
+
     <!-- Canvas -->
     <div id="canvas-container"></div>
 
@@ -575,6 +599,18 @@
     </div>
 
     <script>
+        // Global Error Handler
+        window.onerror = function (msg, url, line, col, error) {
+            const errorLog = document.getElementById('error-log');
+            if (errorLog) {
+                errorLog.style.display = 'block';
+                errorLog.innerHTML += `<div>Error: ${msg} <br> Line: ${line}</div>`;
+            }
+            console.error("Critical Error", msg, error);
+            document.getElementById('loader').innerText = "Error Loading App";
+            return false;
+        };
+
         // --- One Euro Filter (Industry-standard smoothing for gesture tracking) ---
         // Reduces jitter while maintaining responsiveness
         class OneEuroFilter {
@@ -655,6 +691,11 @@
                 this.lastChangeTime = 0;
             }
         }
+
+        // --- Tooltip Elements ---
+        const tooltip = document.getElementById('data-tooltip');
+        const ttTitle = document.getElementById('tt-title');
+        const ttValue = document.getElementById('tt-value');
 
         // --- Fingerpose Custom Gesture Definitions ---
         const Finger = fp.Finger;
@@ -1646,7 +1687,6 @@
         const cameraUtils = new Camera(videoElement, {
             onFrame: async () => {
                 await hands.send({ image: videoElement });
-                await faceMesh.send({ image: videoElement });
             },
             width: 640,
             height: 480
