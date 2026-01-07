@@ -20,12 +20,28 @@
 | **Hybrid Detection** | Distance-based + 15% Fingerpose boost (not replacement) |
 | **Tension Boost** | Fist gesture adds up to 30% tension boost |
 
+### Phase 3: Performance (New) ✅
+| Feature | Description |
+|---------|-------------|
+| **Adaptive Particles** | 5000 (Desktop) / 2000 (Mobile) particles |
+| **FPS Monitoring** | Real-time counter + performance logs |
+| **Hot Path Opt** | Zero-allocation `onResults` loop (reduced GC) |
+
+### Phase 4: UI/UX Polish (New) ✅
+| Feature | Description |
+|---------|-------------|
+| **Gesture Guide** | Help Modal (?) with interactive icons |
+| **Mobile UI** | Responsive layout (stacked controls bottom) |
+| **Visuals** | Glassmorphism, button hover effects |
+
 ### Bug Fixes Applied
 | Issue | Fix |
 |-------|-----|
 | Namaste not triggering | Increased threshold to 0.28, use raw positions |
 | Pinch too hard to trigger | Lowered thresholds (enter: 55%, exit: 40%) |
 | Fingerpose breaking detection | Changed from 60/40 hybrid to boost-only |
+| **Steering Asymmetry** | Fixed XOR condition (works with either hand) |
+| **Incomplete Shapes** | Fixed particle reduction bug chopping geometry |
 
 ## 🎮 Current Gesture Controls
 
@@ -34,23 +50,24 @@
 | **Grab & Drag** | Pinch (thumb+index) | Move object, has momentum on release |
 | **Rotate** | Pinch + rotate wrist | Spin object (Z-axis), has spin momentum |
 | **Zoom** | Double-pinch (both hands) | Scale up/down with glow effect |
-| **Steer** | One pinch + one open | Rotate Z-axis (steering wheel) |
+| **Steer** | Pinch + Open Hand | Rotate Z-axis (any hand combo) |
 | **Reset** | Namaste (palms together) | Reset position, rotation, scale |
 
 ## 🛠 Technical Stack
-- **Three.js r128**: 3D rendering, 5000 particles
+- **Three.js r128**: 3D rendering, 5000/2000 particles
 - **MediaPipe Hands**: Real-time hand tracking (2 hands)
 - **Fingerpose 0.1.0**: Gesture recognition boost
 - **OneEuroFilter**: Adaptive smoothing for positions
 - **GestureDebouncer**: Temporal filtering for states
 
-## ⏭ Next Steps: Phase 3 - Performance
-- [ ] Adaptive particle count (5000 desktop, 2000 mobile)
-- [ ] FPS monitoring
-- [ ] Optimize hot path (reduce GC, cache DOM refs)
+## ⏭ Next Steps: Release
+- [x] Phase 3: Performance Optimization
+- [x] Phase 4: UI/UX Polish
+- [x] Phase 5: Documentation & Cleanup
+- [ ] Merge `fix/steering-logic` to `main`
 
 ## 📁 Project Structure
-- `index.html`: Single-file app (~1320 lines)
+- `index.html`: Single-file app (~1600 lines)
 - `CLAUDE.md`: Claude Code instructions
 - `GEMINI.md`: This session summary
 - `BRANDING.md`: Design guidelines
