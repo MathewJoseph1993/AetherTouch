@@ -17,7 +17,16 @@ Experience 6DoF (Six Degrees of Freedom) control without touching a screen:
 | **Grab** | One Hand Pinch | **Drag** objects through space |
 | **Twist** | One Hand Pinch + Rotate | **Rotate** objects (Z-Axis Roll) |
 | **Elastic Zoom** | **Double Pinch** (Both Hands) | **Stretch** to Zoom In, **Compress** to Zoom Out (Rate-based) |
+| **Steer** | Pinch + Open Hand | **Rotate** like a steering wheel |
 | **Reset** | **Namaste** (Palms Together) | **Reset** position, scale, and rotation to center |
+
+### 🧭 Gesture Guide
+New to the interface? Click the **?** button in the top-left to see an interactive guide of all available gestures.
+
+### ⚡ Performance Optimized
+*   **Adaptive Particles**: Automatically adjusts particle count (5000 on Desktop, 2000 on Mobile) for smooth performance.
+*   **FPS Monitoring**: Real-time Heads-Up Display for performance stats.
+*   **Hot Path Optimization**: Zero-allocation rendering loop for stable 60 FPS.
 
 ### 🧬 Particle Morphing
 Seamlessly transform between mathematical and organic forms:
