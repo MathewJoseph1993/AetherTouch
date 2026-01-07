@@ -706,8 +706,8 @@
                     const distanceRatio = handDist / state.twoHandStartDistance;
                     const newScale = state.twoHandStartScale * distanceRatio;
 
-                    // Clamp scale between 0.3 and 3.0
-                    state.twoHandScale = Math.max(0.3, Math.min(3.0, newScale));
+                    // Clamp scale between 0.3 and 10.0 (1000% - God Mode)
+                    state.twoHandScale = Math.max(0.3, Math.min(10.0, newScale));
 
                     // Update zoom UI
                     zoomDot.classList.add('active');
