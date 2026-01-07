@@ -773,6 +773,16 @@
         const state = {
             currentShape: 'sphere',
             handDetected: false,
+            // ... (existing state) ...
+
+            // --- DATA LAYER (Phase 8) ---
+            data: {
+                revenue: { forecast: "Loading...", growth_yoy: 0 },
+                funnel: { conversion_rate: 0 },
+                regions: { emea: { growth: 0 }, apac: { growth: 0 } }
+            },
+
+
             twoHandsDetected: false,
             tension: 0, // 0 to 1 (relaxed to clenched)
             pinchStrength: 0, // 0 to 1 (open to pinched)
@@ -832,6 +842,30 @@
                 fist: 0
             }
         };
+
+        // --- Fetch Real Data (Phase 8) ---
+        async function fetchGTMData() {
+            try {
+                const response = await fetch('data.json');
+                if (!response.ok) throw new Error("API Error");
+                const data = await response.json();
+                state.data = data;
+                console.log("GTM Data Loaded:", data);
+
+                // Update UI Status to show connection
+                const statusText = document.getElementById('status-text');
+                if (statusText) statusText.innerText = "System Ready (Live Data)";
+
+            } catch (err) {
+                console.error("Data Fetch Failed:", err);
+                // Fallback / Offline Mode
+                state.data.revenue.forecast = "$1.2M (Cached)";
+                state.data.regions.apac.growth = 15;
+            }
+        }
+
+        // Load data on startup
+        fetchGTMData();
 
         // --- Three.js Setup ---
         const container = document.getElementById('canvas-container');
@@ -1944,8 +1978,8 @@
 
             // --- Data Tooltip Logic ---
             const tooltip = document.getElementById('data-tooltip');
-            const ttTitle = document.getElementById('tooltip-title');
-            const ttValue = document.getElementById('tooltip-value');
+            const ttTitle = document.getElementById('tt-title');
+            const ttValue = document.getElementById('tt-value');
 
             // Show tooltip when interacting (Grabbing)
             if (state.isGrabbing) {
@@ -1963,18 +1997,18 @@
                 tooltip.style.left = `${x}px`;
                 tooltip.style.top = `${y}px`;
 
-                // Update Content based on Mode
+                // Update Content based on Mode (Dynamic Data from Phase 8)
                 if (state.currentShape === 'funnel') {
                     ttTitle.innerText = "Revenue Forecast";
-                    ttValue.innerText = "Value: $1.2M (Projected)";
+                    ttValue.innerText = `Forecast: $${state.data.revenue.forecast}`;
                     tooltip.style.borderColor = "#ffd700"; // Gold
                 } else if (state.currentShape === 'globe') {
-                    ttTitle.innerText = "Regional Growth";
-                    ttValue.innerText = "EMEA: +24% YoY";
+                    ttTitle.innerText = "APAC Growth";
+                    ttValue.innerText = `Growth: +${state.data.regions.apac.growth}% YoY`;
                     tooltip.style.borderColor = "#00ff88"; // Green
                 } else if (state.currentShape === 'journey') {
                     ttTitle.innerText = "Conversion Rate";
-                    ttValue.innerText = "Funnel: 3.4% (Avg)";
+                    ttValue.innerText = `Funnel: ${state.data.funnel.conversion_rate}% (Avg)`;
                     tooltip.style.borderColor = "#00f3ff"; // Cyan
                 } else {
                     ttTitle.innerText = "System Status";
