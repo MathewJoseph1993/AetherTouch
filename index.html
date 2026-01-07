@@ -551,7 +551,8 @@
             <button class="tpl-btn" data-shape="sphere">Sphere</button>
             <button class="tpl-btn" data-shape="saturn">Saturn</button>
             <button class="tpl-btn" data-shape="funnel">Revenue Funnel</button>
-            <button class="tpl-btn" data-shape="globe">Global Command (New)</button>
+            <button class="tpl-btn" data-shape="globe">Global Command</button>
+            <button class="tpl-btn" data-shape="journey">Journey Flow (New)</button>
         </div>
 
         <!-- Color Section -->
@@ -1024,6 +1025,37 @@
                     const x = R * Math.cos(theta) * Math.sin(phi);
                     const y = R * Math.sin(theta) * Math.sin(phi);
                     const z = R * Math.cos(phi);
+                    setTarget(i, x, y, z);
+                }
+            },
+            journey: () => {
+                // Customer Journey Flow (Splines/Curves)
+                // Left (-10) to Right (+10) Flow
+
+                // 3 Channels merging into 1
+                for (let i = 0; i < config.particleCount; i++) {
+                    // We'll define x linearly from left to right
+                    // But scatter them a bit for volume
+                    const t = Math.random();
+                    const x = (t * 20) - 10;
+
+                    // Y determines the 'channel' based on x
+                    let y = 0;
+                    let z = 0;
+
+                    // Logistic Sigmoid for merging: 1 / (1 + e^-k(x-x0))
+                    // Merging happens around x = -2
+                    const mergeFactor = 1 / (1 + Math.exp(x + 2)); // High at left, 0 at right
+
+                    // Randomly assign to a branch
+                    const branchID = Math.floor(Math.random() * 3);
+
+                    if (branchID === 0) y = 5 * mergeFactor + Math.sin(x) * 0.5; // Top Branch
+                    if (branchID === 1) y = 0 + Math.sin(x * 1.2) * 0.5;           // Mid Branch
+                    if (branchID === 2) y = -5 * mergeFactor + Math.sin(x * 0.8) * 0.5; // Bot Branch
+
+                    z = (Math.random() - 0.5) * 2; // Thickness
+
                     setTarget(i, x, y, z);
                 }
             },
@@ -1869,6 +1901,49 @@
 
             // Smooth size transition
             material.size += (targetSize - material.size) * 0.1;
+
+            // --- Data Tooltip Logic ---
+            const tooltip = document.getElementById('data-tooltip');
+            const ttTitle = document.getElementById('tooltip-title');
+            const ttValue = document.getElementById('tooltip-value');
+
+            // Show tooltip when interacting (Grabbing)
+            if (state.isGrabbing) {
+                // Get 2D Screen Position of the Object Center (roughly)
+                // We use the last grab position (screen space? No, 3D space)
+                const vector = new THREE.Vector3(state.objectOffset.x, state.objectOffset.y, state.objectOffset.z);
+
+                // Project 3D vector to 2D screen
+                vector.project(camera);
+
+                const x = (vector.x * .5 + .5) * window.innerWidth;
+                const y = (-(vector.y * .5) + .5) * window.innerHeight;
+
+                tooltip.style.display = 'block';
+                tooltip.style.left = `${x}px`;
+                tooltip.style.top = `${y}px`;
+
+                // Update Content based on Mode
+                if (state.currentShape === 'funnel') {
+                    ttTitle.innerText = "Revenue Forecast";
+                    ttValue.innerText = "Value: $1.2M (Projected)";
+                    tooltip.style.borderColor = "#ffd700"; // Gold
+                } else if (state.currentShape === 'globe') {
+                    ttTitle.innerText = "Regional Growth";
+                    ttValue.innerText = "EMEA: +24% YoY";
+                    tooltip.style.borderColor = "#00ff88"; // Green
+                } else if (state.currentShape === 'journey') {
+                    ttTitle.innerText = "Conversion Rate";
+                    ttValue.innerText = "Funnel: 3.4% (Avg)";
+                    tooltip.style.borderColor = "#00f3ff"; // Cyan
+                } else {
+                    ttTitle.innerText = "System Status";
+                    ttValue.innerText = "Particles: " + activeParticleCount;
+                    tooltip.style.borderColor = "#00f3ff";
+                }
+            } else {
+                tooltip.style.display = 'none';
+            }
 
             renderer.render(scene, camera);
         }
