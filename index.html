@@ -550,7 +550,8 @@
             <span class="dock-label">Views</span>
             <button class="tpl-btn" data-shape="sphere">Sphere</button>
             <button class="tpl-btn" data-shape="saturn">Saturn</button>
-            <button class="tpl-btn" data-shape="funnel">Revenue Funnel (New)</button>
+            <button class="tpl-btn" data-shape="funnel">Revenue Funnel</button>
+            <button class="tpl-btn" data-shape="globe">Global Command (New)</button>
         </div>
 
         <!-- Color Section -->
@@ -991,6 +992,38 @@
                     const z = radius * Math.sin(angle);
                     const y = h;
 
+                    setTarget(i, x, y, z);
+                }
+            },
+            globe: () => {
+                // Global Command Center (Geo-Sphere with Hotspots)
+                const R = 6;
+
+                // Define hotspots (Lat/Lon in radians)
+                // approximating: US (North/West), Europe (North/East), APAC (South/East)
+                const hotspots = [
+                    { theta: 1.5, phi: 1.2, strength: 0.4 }, // US-ish
+                    { theta: 5.0, phi: 1.0, strength: 0.3 }, // Europe-ish
+                    { theta: 3.5, phi: 2.2, strength: 0.3 }  // APAC-ish
+                ];
+
+                for (let i = 0; i < config.particleCount; i++) {
+                    let theta, phi;
+
+                    // 70% of particles form the base sphere (World background)
+                    if (Math.random() > 0.3) {
+                        phi = Math.acos(-1 + (2 * Math.random()));
+                        theta = Math.sqrt(config.particleCount * Math.PI) * phi;
+                    } else {
+                        // 30% cluster around hotspots (Active Markets)
+                        const region = hotspots[Math.floor(Math.random() * hotspots.length)];
+                        theta = region.theta + (Math.random() - 0.5) * 0.5;
+                        phi = region.phi + (Math.random() - 0.5) * 0.5;
+                    }
+
+                    const x = R * Math.cos(theta) * Math.sin(phi);
+                    const y = R * Math.sin(theta) * Math.sin(phi);
+                    const z = R * Math.cos(phi);
                     setTarget(i, x, y, z);
                 }
             },
@@ -1752,8 +1785,38 @@
             // --- Color Logic with Visual Feedback ---
             let targetColor = state.baseColor.clone();
 
+            // DATA DRIVEN COLORING (New)
+            // Override base color if in specific data modes
+            if (state.currentShape === 'funnel') {
+                // Gradient based on Height (Y)
+                // We need access to the particle's target Y or current Y.
+                // Since this loop is per-frame global, we can't easily color per-particle HERE 
+                // unless we use a Shader or Vertex Colors.
+                // Three.js PointsMaterial 'color' is global.
+                // To do per-particle colors, we need to switch to Vertex Colors.
+
+                // For this demo (MVP), we will shift the GLOBAL color based on interaction
+                // OR we can't do per-node color without BufferGeometry attribute updates.
+
+                // DECISION: To keep it simple/performant: 
+                // We stick to Global Color shifting for now.
+                // Funnel: Shifts to Gold when "grabbing" (Reaching revenue).
+
+                if (state.isGrabbing) {
+                    targetColor.setHex(0xffd700); // Gold (Revenue)
+                } else {
+                    targetColor.setHex(0x00f3ff); // Cyan (Leads)
+                }
+
+            } else if (state.currentShape === 'globe') {
+                if (state.isGrabbing) {
+                    targetColor.setHex(0x00ff88); // Green (Global Growth)
+                }
+            }
+
+            // Standard Interactions (overrides only if not set above or mixing)
             // Color shift during grab (warmer tint)
-            if (state.isGrabbing) {
+            if (state.isGrabbing && state.currentShape !== 'funnel') {
                 const grabTint = new THREE.Color(0xffaa44); // Warm orange
                 targetColor.lerp(grabTint, 0.3);
             }
