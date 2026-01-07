@@ -23,12 +23,12 @@ npx serve .
 ## Architecture
 
 ### Single-File Structure
-All code lives in `index.html` (~1000 lines):
+All code lives in `index.html` (~1050 lines):
 - **Lines 1-250**: HTML structure and embedded CSS
 - **Lines 250-300**: Global state object and config
 - **Lines 300-530**: Three.js setup and shape generators
-- **Lines 530-860**: MediaPipe hand tracking and gesture processing (`onResults`)
-- **Lines 860-1000**: Animation loop and event handlers
+- **Lines 530-880**: MediaPipe hand tracking and gesture processing (`onResults`)
+- **Lines 880-1050**: Animation loop and event handlers
 
 ### Core Technologies
 - **Three.js (r128)**: 3D rendering with BufferGeometry particle system (5000 particles)
