@@ -193,6 +193,175 @@
             opacity: 0;
             pointer-events: none;
         }
+
+        /* Help Modal */
+        #help-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(8px);
+            z-index: 200;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        #help-modal.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .help-content {
+            background: var(--panel-bg);
+            padding: 30px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            max-width: 400px;
+            width: 90%;
+            color: #fff;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            transform: translateY(20px);
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        #help-modal.visible .help-content {
+            transform: translateY(0);
+        }
+
+        .help-content h2 {
+            margin-top: 0;
+            color: var(--primary-color);
+            text-align: center;
+        }
+
+        .help-list {
+            list-style: none;
+            padding: 0;
+            margin: 20px 0;
+        }
+
+        .help-list li {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            font-size: 1.1rem;
+        }
+
+        .help-icon {
+            font-size: 1.5rem;
+            margin-right: 15px;
+            width: 40px;
+            text-align: center;
+        }
+
+        .close-btn {
+            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            width: 100%;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 1rem;
+            margin-top: 10px;
+        }
+
+        /* Help Toggle Button */
+        #help-toggle {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            z-index: 20;
+            font-weight: bold;
+            font-size: 1.2rem;
+            transition: all 0.2s ease;
+        }
+
+        #help-toggle:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(1.1);
+        }
+    </style>
+    <style>
+        /* Responsive Adjustments */
+        @media (max-width: 600px) {
+            #ui-container {
+                width: 90%;
+                left: 50%;
+                transform: translateX(-50%);
+                top: auto;
+                bottom: 20px;
+                right: auto;
+                padding: 15px;
+            }
+
+            h1 {
+                font-size: 1rem;
+                text-align: center;
+            }
+
+            .status {
+                justify-content: center;
+            }
+
+            #video-feed {
+                max-height: 120px;
+                object-fit: cover;
+            }
+
+            #help-toggle {
+                top: 10px;
+                left: 10px;
+                width: 35px;
+                height: 35px;
+            }
+
+            #fps-counter {
+                top: 10px;
+                left: 50px;
+            }
+        }
+
+        /* Enhanced Button Hover Effects */
+        .tpl-btn {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .tpl-btn::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.3s, height 0.3s;
+        }
+
+        .tpl-btn:hover::after {
+            width: 150%;
+            height: 150%;
+        }
     </style>
     <!-- Three.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -215,6 +384,29 @@
         <div class="spinner"></div>
         <p style="margin-top: 1rem;">Loading AI Models...</p>
     </div>
+
+    <div id="help-modal">
+        <div class="help-content">
+            <h2>Gesture Guide</h2>
+            <ul class="help-list">
+                <li><span class="help-icon">🤏</span>
+                    <div><strong>Grab & Drag</strong><br><small>Pinch index+thumb & move</small></div>
+                </li>
+                <li><span class="help-icon">👐</span>
+                    <div><strong>Elastic Zoom</strong><br><small>Pinch both hands & pull apart</small></div>
+                </li>
+                <li><span class="help-icon">☸️</span>
+                    <div><strong>Steering</strong><br><small>One pinch + One open hand</small></div>
+                </li>
+                <li><span class="help-icon">🙏</span>
+                    <div><strong>System Reset</strong><br><small>Namaste (Palms together)</small></div>
+                </li>
+            </ul>
+            <button class="close-btn" onclick="toggleHelp()">Got it!</button>
+        </div>
+    </div>
+
+    <div id="help-toggle" onclick="toggleHelp()">?</div>
 
     <div id="canvas-container"></div>
 
@@ -691,6 +883,20 @@
             btn.addEventListener('click', () => switchShape(btn.dataset.shape));
         });
 
+        // Help Modal Toggle
+        function toggleHelp() {
+            const modal = document.getElementById('help-modal');
+            modal.classList.toggle('visible');
+        }
+
+        // Show help on first load (after minimal delay)
+        setTimeout(() => {
+            if (!localStorage.getItem('helpShown')) {
+                toggleHelp();
+                localStorage.setItem('helpShown', 'true');
+            }
+        }, 2000);
+
         // Color picker
         const colorPicker = document.getElementById('color-picker');
         colorPicker.addEventListener('input', (e) => {
@@ -921,7 +1127,6 @@
                     const namasteThreshold = 0.28;
 
                     if (rawPalmDist < namasteThreshold && !inCooldown) {
-                        console.log('Namaste Reset Triggered!');
                         // TRIGGER RESET
                         state.objectOffset = { x: 0, y: 0, z: 0 };
                         state.objectRotation = { x: 0, y: 0, z: 0 };
@@ -1220,16 +1425,6 @@
             if (currentTime - lastTimeFps >= 1000) {
                 const fps = frameCount;
                 document.getElementById('fps-counter').innerText = `FPS: ${fps}`;
-
-                // Auto-optimize if framerate drops below 30
-                // DISABLED: Causing visual glitches (chopping structured shapes like Saturn)
-                /* 
-                if (fps < 30 && activeParticleCount > 1000) {
-                    activeParticleCount = Math.max(1000, activeParticleCount - 500);
-                    geometry.setDrawRange(0, activeParticleCount);
-                    console.log(`Low FPS (${fps}). Reducing particles to ${activeParticleCount}`);
-                }
-                */
 
                 frameCount = 0;
                 lastTimeFps = currentTime;
