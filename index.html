@@ -597,6 +597,51 @@
                 const wasPinching = state.isPinching;
                 state.isPinching = state.pinchStrength > 0.6;
 
+                // --- PRE-CALCULATE DOUBLE PINCH (Priority) ---
+                // Check if Hand 2 exists and is pinching
+                if (results.multiHandLandmarks.length >= 2) {
+                    const hand2 = results.multiHandLandmarks[1];
+                    const h2Thumb = hand2[4];
+                    const h2Index = hand2[8];
+                    const h2PinchDist = Math.sqrt(Math.pow(h2Thumb.x - h2Index.x, 2) + Math.pow(h2Thumb.y - h2Index.y, 2));
+                    const isHand2Pinching = h2PinchDist < 0.05; // Simple threshold
+
+                    if (state.isPinching && isHand2Pinching) {
+                        state.isDoublePinching = true;
+                        state.isGrabbing = false; // Force disable grab
+                    } else {
+                        state.isDoublePinching = false;
+                    }
+
+                    // --- NAMASTE RESET (Highest Priority) ---
+                    // Palms close (< 0.1) AND Both Hands OPEN (Not Pinching)
+                    // We use 'handDist' which is calculated later in the loop usually, 
+                    // BUT we can calc it here for H1 vs H2.
+                    const palm1 = landmarks[0];
+                    const palm2 = hand2[0];
+                    const palmDist = Math.sqrt(Math.pow(palm1.x - palm2.x, 2) + Math.pow(palm1.y - palm2.y, 2));
+
+                    if (palmDist < 0.1 && !state.isPinching && !isHand2Pinching) {
+                        // TRIGGER RESET
+                        state.objectOffset = { x: 0, y: 0, z: 0 };
+                        state.objectRotation = { x: 0, y: 0, z: 0 };
+                        state.twoHandScale = 1.0;
+                        state.neutralDistance = null; // Reset Zoom lock
+
+                        // UI Feedback
+                        zoomText.innerText = "Values Reset";
+                        zoomDot.classList.add('active');
+
+                        // Block other inputs
+                        state.isGrabbing = false;
+                        state.isDoublePinching = false;
+                        return; // Skip rest of frame? Or just let it flow with reset values
+                    }
+
+                } else {
+                    state.isDoublePinching = false;
+                }
+
                 // --- Grab-and-Drag Logic ---
                 // Use the midpoint between thumb and index as the "grab point"
                 const grabPointX = (thumbTip.x + indexTip.x) / 2;
@@ -604,7 +649,8 @@
                 state.currentHandPos = { x: grabPointX, y: grabPointY };
 
                 // When pinch just started (transition from not pinching to pinching)
-                if (state.isPinching && !wasPinching) {
+                // Only start grab if NOT double pinching
+                if (state.isPinching && !wasPinching && !state.isDoublePinching) {
                     state.isGrabbing = true;
                     state.grabStartHandPos = { x: grabPointX, y: grabPointY };
                     state.grabStartObjectPos = {
@@ -624,7 +670,8 @@
                 }
 
                 // While grabbing, calculate the delta and update offset
-                if (state.isGrabbing && state.isPinching) {
+                // FORCE STOP drag if Double Pinching (Zooming)
+                if (state.isGrabbing && state.isPinching && !state.isDoublePinching) {
                     // --- Translation ---
                     // Calculate delta in normalized coords (0-1), convert to 3D world units
                     const sensitivity = 25;
@@ -694,15 +741,12 @@
                     state.twoHandDistance = handDist;
 
                     // --- ELASTIC ZOOM (Double Pinch) ---
-                    // Check Pinch for Hand 2 (Hand 1 `state.isPinching` is already known)
-                    const h2Thumb = hand2[4];
-                    const h2Index = hand2[8];
-                    const h2PinchDist = Math.sqrt(Math.pow(h2Thumb.x - h2Index.x, 2) + Math.pow(h2Thumb.y - h2Index.y, 2));
-                    const isHand2Pinching = h2PinchDist < 0.05; // Simple threshold
+                    // State is already calculated at top of loop
+                    if (state.isDoublePinching) {
 
-                    if (state.isPinching && isHand2Pinching) {
-                        state.isDoublePinching = true;
-                        state.isGrabbing = false; // Disable single hand drag
+                        // We need the distance between hands (already calc in 'handDist')
+
+                        // First frame of Double Pinch: Set Neutral Distance
 
                         // First frame of Double Pinch: Set Neutral Distance
                         if (state.neutralDistance === null) {
@@ -974,6 +1018,22 @@
         }
 
         animate();
+
+        // --- Keyboard Controls ---
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                // RESET (Same as Namaste)
+                state.objectOffset = { x: 0, y: 0, z: 0 };
+                state.objectRotation = { x: 0, y: 0, z: 0 };
+                state.twoHandScale = 1.0;
+                state.neutralDistance = null;
+                state.isGrabbing = false;
+                state.isDoublePinching = false;
+
+                const zoomText = document.getElementById('status-text');
+                if (zoomText) zoomText.innerText = "System Reset";
+            }
+        });
 
     </script>
 </body>
