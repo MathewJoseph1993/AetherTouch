@@ -407,7 +407,13 @@
             lastScaleFactor: 1.0,      // For smooth scale transitions
             targetColor: new THREE.Color(0x00f3ff),
             baseColor: new THREE.Color(0x00f3ff),
-            time: 0
+            time: 0,
+            // Momentum/Inertia state
+            velocity: { x: 0, y: 0 },
+            angularVelocity: 0,
+            lastGrabPos: { x: 0, y: 0 },
+            lastGrabAngle: 0,
+            momentumActive: false
         };
 
         // --- Three.js Setup ---
@@ -795,6 +801,11 @@
                         state.twoHandStartAngle = null;
                         state.primaryHandLabel = null;
 
+                        // Reset momentum
+                        state.momentumActive = false;
+                        state.velocity = { x: 0, y: 0 };
+                        state.angularVelocity = 0;
+
                         // Reset all filters and debouncers for clean state
                         Object.values(filters.hand1).forEach(f => f.reset());
                         Object.values(filters.hand2).forEach(f => f.reset());
@@ -930,6 +941,13 @@
                         if (results.multiHandedness && results.multiHandedness.length > 0) {
                             state.primaryHandLabel = results.multiHandedness[primaryHandIndex].label;
                         }
+
+                        // Initialize momentum tracking
+                        state.velocity = { x: 0, y: 0 };
+                        state.angularVelocity = 0;
+                        state.lastGrabPos = { x: state.objectOffset.x, y: state.objectOffset.y };
+                        state.lastGrabAngle = state.objectRotation.z;
+                        state.momentumActive = false;
                     }
 
                     // While grabbing - apply translation and rotation
@@ -949,6 +967,18 @@
                             state.objectRotation.z = state.grabStartObjectRotation.z - deltaAngle;
                         }
 
+                        // Track velocity for momentum (position + rotation)
+                        const dx = state.objectOffset.x - state.lastGrabPos.x;
+                        const dy = state.objectOffset.y - state.lastGrabPos.y;
+                        state.velocity.x = state.velocity.x * 0.7 + dx * 0.3;
+                        state.velocity.y = state.velocity.y * 0.7 + dy * 0.3;
+                        state.lastGrabPos.x = state.objectOffset.x;
+                        state.lastGrabPos.y = state.objectOffset.y;
+
+                        const dAngle = state.objectRotation.z - state.lastGrabAngle;
+                        state.angularVelocity = state.angularVelocity * 0.7 + dAngle * 0.3;
+                        state.lastGrabAngle = state.objectRotation.z;
+
                         pinchDot.classList.add('active');
                         pinchText.innerText = 'Grabbing...';
                     }
@@ -956,6 +986,7 @@
                     // Pinch released
                     if (!state.isPinching && wasPinching) {
                         state.isGrabbing = false;
+                        state.momentumActive = true; // Enable momentum continuation
                         state.primaryHandLabel = null; // Release hand lock
                     }
                 }
@@ -1114,8 +1145,33 @@
 
             // Apply Scale & Rotation
 
-            // Auto-rotate ONLY if not grabbing
-            if (!state.isGrabbing) {
+            // Apply momentum after release (position + rotation)
+            if (state.momentumActive && !state.isGrabbing) {
+                // Apply velocity to position
+                state.objectOffset.x += state.velocity.x;
+                state.objectOffset.y += state.velocity.y;
+
+                // Apply angular velocity to rotation
+                state.objectRotation.z += state.angularVelocity;
+
+                // Exponential decay (friction = 0.92)
+                const friction = 0.92;
+                state.velocity.x *= friction;
+                state.velocity.y *= friction;
+                state.angularVelocity *= friction;
+
+                // Stop momentum when all velocities are negligible
+                const speed = Math.sqrt(state.velocity.x ** 2 + state.velocity.y ** 2);
+                const angSpeed = Math.abs(state.angularVelocity);
+                if (speed < 0.001 && angSpeed < 0.0001) {
+                    state.momentumActive = false;
+                    state.velocity = { x: 0, y: 0 };
+                    state.angularVelocity = 0;
+                }
+            }
+
+            // Auto-rotate ONLY if not grabbing (and not in momentum)
+            if (!state.isGrabbing && !state.momentumActive) {
                 state.objectRotation.y += 0.002;
             }
 
