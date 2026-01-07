@@ -13,23 +13,19 @@ Experience 6DoF (Six Degrees of Freedom) control without touching a screen:
 
 | Gesture | Action | Result |
 | :--- | :--- | :--- |
-| **Hover** | Open Hands | **Zoom In/Out** (Scale the universe) |
-| **Grab** | Pinch (Thumb+Index) | **Drag** objects through space |
-| **Twist** | Pinch + Rotate Wrist | **Rotate** objects (Z-Axis Roll) |
-| **Steer** | Two Fists (Closed) | **Tilt/Steer** the entire system |
+| **Hover** | Open Hands | **Idle / Focus** |
+| **Grab** | One Hand Pinch | **Drag** objects through space |
+| **Twist** | One Hand Pinch + Rotate | **Rotate** objects (Z-Axis Roll) |
+| **Elastic Zoom** | **Double Pinch** (Both Hands) | **Stretch** to Zoom In, **Compress** to Zoom Out (Rate-based) |
+| **Reset** | **Namaste** (Palms Together) | **Reset** position, scale, and rotation to center |
 
 ### 🧬 Particle Morphing
 Seamlessly transform between mathematical and organic forms:
-*   **Sphere**: The classic starting point.
-*   **Heart**: Parametric romance.
-*   **Flower**: Rose curve mathematics.
-*   **Saturn**: Planetary rings.
-*   **Buddha**: Point cloud visualization.
-*   **Fireworks**: Explosive radial bursts.
+*   **Sphere**, **Heart**, **Flower**, **Saturn**, **Buddha**, **Fireworks**.
 
 ### 🎨 Customization
 *   **Real-time Color Picker**: Paint the particles with any color.
-*   **Neon Glass Aesthetics**: Premium dark-mode UI with glassmorphism.
+*   **HUD Camera**: Integrated "Heads-Up Display" for immersive tracking.
 
 ## 🛠️ Technology Stack
 
@@ -47,26 +43,30 @@ Seamlessly transform between mathematical and organic forms:
     ```
 
 2.  **Serve the file**:
-    Due to browser security restrictions with Webcams, you must run this over a local server (not just double-clicking `index.html`).
-    
+    Due to browser security restrictions with Webcams, you must run this over a local server.
     *   **VS Code**: Right-click `index.html` -> "Open with Live Server".
     *   **Python**: `python3 -m http.server 8000`
     *   **Node**: `npx serve .`
 
-3.  **Grant Permissions**: Allow your browser to access the Webcam when prompted.
+3.  **Grant Permissions**: Allow your browser to access the Webcam.
 
-4.  **Enjoy**: Hold up your hands and become a wizard!
+## 🎮 Controls Guide
 
-## 🎮 Controls
+### 1️⃣ Zooming (God Mode)
+*   **Gesture**: Raise both hands and **PINCH** with both.
+*   **Action**: 
+    *   Pull hands apart: **Zoom IN** (up to 1000%).
+    *   Push hands together: **Zoom OUT**.
+    *   Release pinch: **Freeze** zoom level.
 
-*   **One Hand**: 
-    *   Open Palm: Idle / Focus.
-    *   Pinch: Grab & Move.
-    *   Pinch & Twist: Rotate.
-    *   Fist: Collapse/Tension.
-*   **Two Hands**:
-    *   Spread/Close: Zoom In/Out.
-    *   Two Fists (One up, One down): Steer/Tilt.
+### 2️⃣ Moving & Rotating
+*   **Gesture**: **PINCH** with one hand.
+*   **Action**: Move hand to drag. Rotate wrist to roll the object.
+
+### 3️⃣ System Reset
+*   **Gesture**: **Namaste** (Bring palms together like a clap).
+*   **Keyboard**: Press **SPACEBAR**.
+*   **Effect**: Instantly centers and resets the object.
 
 ## 🤝 Contributing
 
