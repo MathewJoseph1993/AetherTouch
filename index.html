@@ -282,14 +282,14 @@
             currentHandPos: { x: 0, y: 0 },
             objectOffset: { x: 0, y: 0, z: 0 },
             objectRotation: { x: 0, y: 0, z: 0 }, // Accumulated rotation
-            // Iron Man two-handed state
+            // Elastic Zoom State
             twoHandDistance: 0,
-            twoHandStartDistance: 0,
-            twoHandStartScale: 1.0,
-            twoHandScale: 1.0,
-            twoHandStartAngle: 0,      // For Steering
+            neutralDistance: null,    // The reference distance for "Zero speed"
+            twoHandScale: 1.0,        // The persisted scale value
+            isDoublePinching: false,  // Active trigger for Elastic Zoom
+
+            twoHandStartAngle: 0,      // For Steering (still useful?)
             twoHandStartObjRotation: 0, // For Steering Z
-            isZooming: false,
             isSteering: false,         // New Flag for Closed-Hand Steering
             targetColor: new THREE.Color(0x00f3ff),
             baseColor: new THREE.Color(0x00f3ff),
@@ -693,28 +693,63 @@
 
                     state.twoHandDistance = handDist;
 
-                    // When two hands first appear, record the starting distance and scale
-                    if (!state.isZooming) {
-                        state.isZooming = true;
-                        state.twoHandStartDistance = handDist;
-                        state.twoHandStartScale = state.twoHandScale;
+                    // --- ELASTIC ZOOM (Double Pinch) ---
+                    // Check Pinch for Hand 2 (Hand 1 `state.isPinching` is already known)
+                    const h2Thumb = hand2[4];
+                    const h2Index = hand2[8];
+                    const h2PinchDist = Math.sqrt(Math.pow(h2Thumb.x - h2Index.x, 2) + Math.pow(h2Thumb.y - h2Index.y, 2));
+                    const isHand2Pinching = h2PinchDist < 0.05; // Simple threshold
+
+                    if (state.isPinching && isHand2Pinching) {
+                        state.isDoublePinching = true;
+                        state.isGrabbing = false; // Disable single hand drag
+
+                        // First frame of Double Pinch: Set Neutral Distance
+                        if (state.neutralDistance === null) {
+                            state.neutralDistance = handDist;
+                            zoomText.innerText = `Zoom Locked: Stretch to Zoom`;
+                            // Visual feedback color?
+                        } else {
+                            // Compare current dist to neutral
+                            const ratio = handDist / state.neutralDistance;
+
+                            // Deadzone (0.9 to 1.1) - Stable
+                            // Stretch (> 1.1) - Zoom In
+                            // Compress (< 0.9) - Zoom Out
+
+                            let zoomSpeed = 0;
+                            if (ratio > 1.1) {
+                                zoomSpeed = (ratio - 1.1) * 0.05; // Speed multiplier
+                                zoomText.innerText = `Zooming IN >> ${(state.twoHandScale * 100).toFixed(0)}%`;
+                            } else if (ratio < 0.9) {
+                                zoomSpeed = (ratio - 0.9) * 0.05; // Negative speed
+                                zoomText.innerText = `Zooming OUT << ${(state.twoHandScale * 100).toFixed(0)}%`;
+                            } else {
+                                zoomText.innerText = `Zoom Holding`;
+                            }
+
+                            // Apply Zoom
+                            state.twoHandScale += zoomSpeed * state.twoHandScale; // Proportional zoom
+                            state.twoHandScale = Math.max(0.1, Math.min(50.0, state.twoHandScale)); // Max 50x!
+                        }
+
+                        zoomDot.classList.add('active');
+
+                    } else {
+                        // Reset Elastic State
+                        state.isDoublePinching = false;
+                        state.neutralDistance = null;
+
+                        // Regular UI Update
+                        zoomDot.classList.remove('active');
+                        zoomText.innerText = `Zoom: Use 2-Hand Pinch`;
+
+                        // --- Fallback: Steering or other logic ---
+                        // We removed the old "Spread Hands" zoom. 
+                        // Now we only zoom if double pinching.
                     }
 
-                    // Calculate scale based on hand distance ratio
-                    // If hands spread apart (distance increases), scale up
-                    // If hands come together (distance decreases), scale down
-                    const distanceRatio = handDist / state.twoHandStartDistance;
-                    const newScale = state.twoHandStartScale * distanceRatio;
-
-                    // Clamp scale between 0.3 and 10.0 (1000% - God Mode)
-                    state.twoHandScale = Math.max(0.3, Math.min(10.0, newScale));
-
-                    // Update zoom UI
-                    zoomDot.classList.add('active');
-                    const zoomPercent = Math.round(state.twoHandScale * 100);
-                    zoomText.innerText = `Zoom: ${zoomPercent}%`;
-
-                    // --- TWO-HANDED STEERING (Rotate) ---
+                    // --- TWO-HANDED STEERING (Rotated Fists) ---
                     // "Steering" activation: closing both hands
                     // We need to check tension of both hands. 
                     // To save perf, we just check simple wrist-to-middle distance approx or assume if Pinch is active on Hand 1 (already calc)
@@ -722,11 +757,8 @@
                     // If Hand 1 is "Pinching/Grabbing", we assume the user intends to manipulate.
                     // Ideally check Hand 2 too.
 
-                    // Simple heuristic: If "isPinching" (Hand 1) is true AND we have 2 hands, 
-                    // AND Hand 1 is part of the 2 hands tuple (which it is),
-                    // THEN we enable steering.
-
-                    if (state.isPinching) {
+                    // UPDATE: Only allow Steering if NOT Double Pinching (priority)
+                    if (state.isPinching && !state.isDoublePinching) {
                         state.isSteering = true;
 
                         // Calculate angle between the two wrists
@@ -747,8 +779,7 @@
                             state.objectRotation.z = state.twoHandStartObjRotation - deltaAngle;
                         }
 
-                        zoomText.innerText = `Steering... ${zoomPercent}%`;
-
+                        // zoomText.innerText = `Steering... ${zoomPercent}%`; // Fix variable reference
                     } else {
                         // Open hands -> Reset steering state
                         state.isSteering = false;
