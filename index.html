@@ -2072,48 +2072,66 @@
             particles.scale.lerp(new THREE.Vector3(finalScale, finalScale, finalScale), 0.08);
 
             // --- Color Logic with Visual Feedback ---
-            let targetColor = state.baseColor.clone();
+            // NOTE: With Vertex Colors, we stop setting material.color globally
+            // UNLESS we want to tint everything. 
+            // For now, we only tint if NOT in multicolor mode.
 
-            // DATA DRIVEN COLORING (New)
-            // Override base color if in specific data modes
-            if (state.currentShape === 'funnel') {
-                // Gradient based on Height (Y)
-                // We need access to the particle's target Y or current Y.
-                // Since this loop is per-frame global, we can't easily color per-particle HERE 
-                // unless we use a Shader or Vertex Colors.
-                // Three.js PointsMaterial 'color' is global.
-                // To do per-particle colors, we need to switch to Vertex Colors.
+            if (state.currentShape !== 'funnel') {
+                // Use Global Tint for Single-Color Shapes
+                let targetColor = state.baseColor.clone();
+                if (state.isGrabbing) targetColor.setHex(0xffaa44);
+                if (state.isDoublePinching) targetColor.lerp(new THREE.Color(0xffffff), 0.3);
 
-                // For this demo (MVP), we will shift the GLOBAL color based on interaction
-                // OR we can't do per-node color without BufferGeometry attribute updates.
-
-                // DECISION: To keep it simple/performant: 
-                // We stick to Global Color shifting for now.
-                // Funnel: Shifts to Gold when "grabbing" (Reaching revenue).
-
-                if (state.isGrabbing) {
-                    targetColor.setHex(0xffd700); // Gold (Revenue)
-                } else {
-                    targetColor.setHex(0x00f3ff); // Cyan (Leads)
-                }
-
-            } else if (state.currentShape === 'globe') {
-                if (state.isGrabbing) {
-                    targetColor.setHex(0x00ff88); // Green (Global Growth)
-                }
+                // Update all vertex colors to this target (Simulating global color)
+                // Optimized: Do this only if color chagned? 
+                // For MVP, just updating material.color works IF vertexColors is false.
+                // But we have vertexColors=true. So material.color is MULTIPLIED.
+                material.color.lerp(targetColor, 0.1);
+            } else {
+                // In funnel mode, keep material white so vertex colors show true
+                material.color.setHex(0xffffff);
             }
 
-            // Standard Interactions (overrides only if not set above or mixing)
-            // Color shift during grab (warmer tint)
-            if (state.isGrabbing && state.currentShape !== 'funnel') {
-                const grabTint = new THREE.Color(0xffaa44); // Warm orange
-                targetColor.lerp(grabTint, 0.3);
-            }
+            // --- PLEXUS UPDATE (Lines) ---
+            // Connect first N particles if close enough
+            if (state.currentShape === 'journey' || state.currentShape === 'globe') {
+                let lineIdx = 0;
+                const pos = currentPositions;
+                const lPos = lineGeometry.attributes.position.array;
 
-            // Brighter during zoom
-            if (state.isDoublePinching) {
-                const zoomTint = new THREE.Color(0xffffff); // White boost
-                targetColor.lerp(zoomTint, 0.2);
+                // Only check a subset of particles for connections
+                for (let i = 0; i < maxConnections; i++) {
+                    const ix = i * 3;
+                    const p1 = { x: pos[ix], y: pos[ix + 1], z: pos[ix + 2] };
+
+                    // Check neighbors
+                    for (let j = i + 1; j < maxConnections; j++) {
+                        const jx = j * 3;
+                        const dist = Math.sqrt(
+                            Math.pow(p1.x - pos[jx], 2) +
+                            Math.pow(p1.y - pos[jx + 1], 2) +
+                            Math.pow(p1.z - pos[jx + 2], 2)
+                        );
+
+                        if (dist < 3.0) { // Connection threshold
+                            // Add line
+                            lPos[lineIdx++] = p1.x;
+                            lPos[lineIdx++] = p1.y;
+                            lPos[lineIdx++] = p1.z;
+
+                            lPos[lineIdx++] = pos[jx];
+                            lPos[lineIdx++] = pos[jx + 1];
+                            lPos[lineIdx++] = pos[jx + 2];
+
+                            if (lineIdx >= lPos.length) break;
+                        }
+                    }
+                }
+                lineGeometry.setDrawRange(0, lineIdx / 3);
+                lineGeometry.attributes.position.needsUpdate = true;
+                lines.visible = true;
+            } else {
+                lines.visible = false;
             }
 
             // Slight red shift during high tension
