@@ -1168,32 +1168,60 @@
         // We'll use BufferGeometry for performance
         const geometry = new THREE.BufferGeometry();
         const positions = new Float32Array(config.particleCount * 3);
-        const targetPositions = new Float32Array(config.particleCount * 3); // Where particles want to go
-        const originalPositions = new Float32Array(config.particleCount * 3); // Base for shapes
+        const targetPositions = new Float32Array(config.particleCount * 3);
+        const colors = new Float32Array(config.particleCount * 3); // For Vertex Colors
 
-        // Initialize with random positions
-        for (let i = 0; i < config.particleCount * 3; i++) {
-            positions[i] = (Math.random() - 0.5) * 50;
-            targetPositions[i] = positions[i];
+        // Initialize positions & colors
+        const color1 = new THREE.Color(0x00f3ff); // Default Cyan
+        for (let i = 0; i < config.particleCount; i++) {
+            const i3 = i * 3;
+            positions[i3] = (Math.random() - 0.5) * 50;
+            positions[i3 + 1] = (Math.random() - 0.5) * 50;
+            positions[i3 + 2] = (Math.random() - 0.5) * 50;
+            targetPositions[i3] = positions[i3];
+            targetPositions[i3 + 1] = positions[i3 + 1];
+            targetPositions[i3 + 2] = positions[i3 + 2];
+
+            // Set initial color
+            colors[i3] = color1.r;
+            colors[i3 + 1] = color1.g;
+            colors[i3 + 2] = color1.b;
         }
 
         geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
         // Create a custom material or use PointsMaterial
         // Using a texture sprite for particles makes them look nicer
         const sprite = new THREE.TextureLoader().load('https://threejs.org/examples/textures/sprites/disc.png');
         const material = new THREE.PointsMaterial({
             size: config.baseSize,
-            color: state.targetColor,
+            vertexColors: true, // ENABLE MULTI-COLOR
             map: sprite,
             alphaTest: 0.5,
             transparent: true,
+            opacity: 0.8,
             blending: THREE.AdditiveBlending,
             depthWrite: false
         });
 
         const particles = new THREE.Points(geometry, material);
         scene.add(particles);
+
+        // --- PLEXUS CONNECTIONS (Data Nodes) ---
+        // Limited count to save CPU
+        const maxConnections = 200;
+        const lineMaterial = new THREE.LineBasicMaterial({
+            color: 0x00f3ff,
+            transparent: true,
+            opacity: 0.15
+        });
+        const lineGeometry = new THREE.BufferGeometry();
+        // Allocate buffer for lines (max 2 lines per node * maxConnections)
+        const linePos = new Float32Array(maxConnections * 2 * 3 * 2);
+        lineGeometry.setAttribute('position', new THREE.BufferAttribute(linePos, 3));
+        const lines = new THREE.LineSegments(lineGeometry, lineMaterial);
+        scene.add(lines);
 
         // --- Shape Generators ---
         // Helper to set a point in the target array
@@ -1210,28 +1238,45 @@
 
 
             funnel: () => {
-                // GTM Revenue Funnel (Tornado/Cone)
-                // Top (Leads) -> Wide, Bottom (Revenue) -> Narrow
+                // GTM Revenue Funnel (Tornado/Cone) with Multi-Color Stages
+                const height = 12;
+                const topRadius = 6;
+                const bottomRadius = 0.5;
+
+                // Colors for stages
+                const cLeads = new THREE.Color(0x00f3ff);   // Cyan (Top)
+                const cOpp = new THREE.Color(0xffaa00);     // Orange (Mid)
+                const cWon = new THREE.Color(0x00ff88);     // Green (Bottom)
+
+                const colorsAttribute = geometry.attributes.color;
+
                 for (let i = 0; i < config.particleCount; i++) {
-                    const progress = i / config.particleCount; // 0 to 1
+                    const h = Math.random() * height; // 0 to 12
+                    const y = h - (height / 2); // Center Y
 
-                    // Distribution: More particles at the top (Leads)
-                    // We map linear index to a powered distribution 
-                    const h = (Math.pow(Math.random(), 0.8) * 7) - 3; // -3 to 4 mapped
+                    // Radius decreases as we go down (simple linear)
+                    // h=0(bottom) -> r=bottomRadius, h=12(top) -> r=topRadius
+                    const progress = h / height; // 0 (bottom) to 1 (top)
+                    const r = bottomRadius + (topRadius - bottomRadius) * progress;
 
-                    // Radius decreases as height decreases
-                    // h = 4 (Top) -> r = 3.5
-                    // h = -3 (Bottom) -> r = 0.2
-                    const radius = ((h + 3.5) / 7.5) * 3.5 + 0.1;
+                    const theta = Math.random() * Math.PI * 2 * 4 + (y * 2); // Spiral
+                    const x = r * Math.cos(theta);
+                    const z = r * Math.sin(theta);
 
-                    const angle = Math.random() * Math.PI * 2 + (h * 2); // Twist
+                    // --- ASSIGN COLORS BY STAGE ---
+                    const i3 = i * 3;
+                    let c = cLeads;
+                    if (progress < 0.3) c = cWon;        // Bottom 30% = Won
+                    else if (progress < 0.6) c = cOpp;   // Mid 30% = Opportunity
 
-                    const x = radius * Math.cos(angle);
-                    const z = radius * Math.sin(angle);
-                    const y = h;
+                    // Update Color Buffer
+                    colorsAttribute.array[i3] = c.r;
+                    colorsAttribute.array[i3 + 1] = c.g;
+                    colorsAttribute.array[i3 + 2] = c.b;
 
                     setTarget(i, x, y, z);
                 }
+                colorsAttribute.needsUpdate = true;
             },
             globe: () => {
                 // Global Command Center (Geo-Sphere with Hotspots)
