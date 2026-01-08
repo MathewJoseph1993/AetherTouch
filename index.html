@@ -197,6 +197,7 @@
         /* Color Picker */
         input[type="color"] {
             -webkit-appearance: none;
+            appearance: none;
             border: none;
             width: 40px;
             height: 40px;
@@ -2156,9 +2157,11 @@
             // UNLESS we want to tint everything. 
             // For now, we only tint if NOT in multicolor mode.
 
+            let targetColor = state.baseColor.clone();
+
             if (state.currentShape !== 'funnel') {
                 // Use Global Tint for Single-Color Shapes
-                let targetColor = state.baseColor.clone();
+                // (targetColor is already cloned base)
                 if (state.isGrabbing) targetColor.setHex(0xffaa44);
                 if (state.isDoublePinching) targetColor.lerp(new THREE.Color(0xffffff), 0.3);
 
@@ -2220,7 +2223,11 @@
                 targetColor.lerp(tensionTint, (state.tension - 0.7) * 1.5);
             }
 
-            material.color.lerp(targetColor, 0.1);
+            if (state.currentShape !== 'funnel') {
+                material.color.lerp(targetColor, 0.1);
+            } else {
+                material.color.setHex(0xffffff);
+            }
 
             // --- Apply Grab Offset (Pinch-and-Drag) ---
             // Smoothly lerp the particle group position towards the target offset
