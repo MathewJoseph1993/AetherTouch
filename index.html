@@ -197,6 +197,7 @@
         /* Color Picker */
         input[type="color"] {
             -webkit-appearance: none;
+            appearance: none;
             border: none;
             width: 40px;
             height: 40px;
@@ -417,6 +418,161 @@
         }
     </style>
     <style>
+        /* Settings Modal (Glassmorphism) */
+        #settings-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(5px);
+            z-index: 300;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        #settings-modal.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .settings-content {
+            background: rgba(15, 15, 25, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            width: 500px;
+            max-width: 90%;
+            box-shadow: 0 50px 100px rgba(0, 0, 0, 0.8);
+            transform: scale(0.95);
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #settings-modal.visible .settings-content {
+            transform: scale(1);
+        }
+
+        .settings-header {
+            padding: 20px 30px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .settings-header h2 {
+            margin: 0;
+            font-size: 1.2rem;
+            color: #fff;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+
+        .close-icon {
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        .close-icon:hover {
+            color: #fff;
+        }
+
+        .settings-body {
+            padding: 30px;
+            flex-grow: 1;
+        }
+
+        .setting-group {
+            margin-bottom: 25px;
+        }
+
+        .setting-group label {
+            display: block;
+            color: var(--primary-color);
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .setting-desc {
+            font-size: 0.85rem;
+            color: #888;
+            margin-bottom: 15px;
+            margin-top: 0;
+        }
+
+        .input-wrapper {
+            position: relative;
+            border: 2px dashed rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 5px;
+            transition: border-color 0.3s;
+        }
+
+        .input-wrapper:hover,
+        .input-wrapper.drag-active {
+            border-color: var(--primary-color);
+        }
+
+        #sheet-input-modal {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            border: none;
+            color: #fff;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 1rem;
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        .drop-zone-hint {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.3);
+            pointer-events: none;
+        }
+
+        .settings-footer {
+            padding: 20px 30px;
+            background: rgba(0, 0, 0, 0.2);
+            text-align: right;
+        }
+
+        .primary-btn {
+            background: var(--primary-color);
+            color: #000;
+            border: none;
+            padding: 10px 25px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .primary-btn:hover {
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.4);
+            transform: translateY(-1px);
+        }
+    </style>
+    <style>
         /* Responsive Adjustments */
         @media (max-width: 600px) {
             #ui-container {
@@ -538,6 +694,44 @@
             <button class="close-btn" onclick="toggleHelp()">Got it!</button>
         </div>
     </div>
+    </div>
+
+    <!-- Settings Modal (SaaS Style) -->
+    <div id="settings-modal">
+        <div class="settings-content">
+            <div class="settings-header">
+                <h2>System Configuration</h2>
+                <button class="close-icon" onclick="toggleSettings()">×</button>
+            </div>
+
+            <div class="settings-body">
+                <div class="setting-group">
+                    <label>Data Input Source</label>
+                    <p class="setting-desc">Connect your GTM metrics via Google Sheets or CSV.</p>
+                    <div class="input-wrapper">
+                        <input type="text" id="sheet-input-modal" placeholder="Paste Google Sheet ID or URL..."
+                            autocomplete="off">
+                        <div class="drop-zone-hint">or drag & drop .csv / .json here</div>
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <label>Visualization Mode</label>
+                    <div class="toggle-row">
+                        <span>High Performance (Low Particles)</span>
+                        <label class="switch">
+                            <input type="checkbox" id="perf-toggle">
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-footer">
+                <button class="primary-btn" onclick="toggleSettings()">Save Changes</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Tooltip (Holographic Data) -->
     <div id="data-tooltip"
@@ -572,12 +766,12 @@
         <!-- Shapes Section -->
         <div class="dock-section">
             <span class="dock-label">Views</span>
-            <button class="tpl-btn" data-shape="sphere">Sphere</button>
-            <button class="tpl-btn" data-shape="saturn">Saturn</button>
             <button class="tpl-btn" data-shape="funnel">Revenue Funnel</button>
             <button class="tpl-btn" data-shape="globe">Global Command</button>
-            <button class="tpl-btn" data-shape="journey">Journey Flow (New)</button>
+            <button class="tpl-btn" data-shape="journey">Journey Flow</button>
         </div>
+
+
 
         <!-- Color Section -->
         <div class="dock-section">
@@ -587,6 +781,7 @@
 
         <!-- Tools Section -->
         <div class="dock-section">
+            <button class="tpl-btn" onclick="toggleSettings()">Settings (⚙️)</button>
             <button class="tpl-btn" onclick="toggleHelp()">Help (?)</button>
         </div>
     </div>
@@ -771,8 +966,18 @@
         };
 
         const state = {
-            currentShape: 'sphere',
+            currentShape: 'funnel',
             handDetected: false,
+            // ... (existing state) ...
+
+            // --- DATA LAYER (Phase 8) ---
+            data: {
+                revenue: { forecast: "Loading...", growth_yoy: 0 },
+                funnel: { conversion_rate: 0 },
+                regions: { emea: { growth: 0 }, apac: { growth: 0 } }
+            },
+
+
             twoHandsDetected: false,
             tension: 0, // 0 to 1 (relaxed to clenched)
             pinchStrength: 0, // 0 to 1 (open to pinched)
@@ -833,6 +1038,119 @@
             }
         };
 
+        // --- UNIVERSAL DATA CONNECTOR (Phase 8.2) ---
+        class DataConnector {
+            constructor() {
+                this.adapter = new MockAdapter(); // Default
+            }
+
+            use(adapter) {
+                this.adapter = adapter;
+                this.fetch();
+            }
+
+            async fetch() {
+                try {
+                    const data = await this.adapter.getData();
+                    if (data) {
+                        state.data = this.parseUnifiedData(data);
+                        console.log("Data Connected:", state.data);
+                        this.updateStatus("System Live: " + this.adapter.name);
+                    }
+                } catch (err) {
+                    console.error("Connector Error:", err);
+                    this.updateStatus("Connection Failed");
+                }
+            }
+
+            updateStatus(msg) {
+                const el = document.getElementById('status-text');
+                if (el) el.innerText = msg;
+            }
+
+            parseUnifiedData(raw) {
+                if (raw.revenue && raw.funnel) return raw; // JSON structure match
+
+                // CSV/Array structure match (Google Sheets)
+                // Default:Row 0=Rev, Row 1=Funnel, Row 2=Regions
+                return {
+                    revenue: {
+                        forecast: raw[0]?.value || "$1.2M",
+                        growth_yoy: parseFloat(raw[0]?.growth || 0)
+                    },
+                    funnel: { conversion_rate: parseFloat(raw[1]?.value || 3.4) },
+                    regions: {
+                        emea: { growth: parseFloat(raw[2]?.value || 0) },
+                        apac: { growth: parseFloat(raw[2]?.growth || 0) }
+                    }
+                };
+            }
+        }
+
+        // --- ADAPTERS ---
+        class MockAdapter {
+            get name() { return "Mock Data"; }
+            async getData() {
+                const response = await fetch('data.json');
+                return await response.json();
+            }
+        }
+
+        class GoogleSheetAdapter {
+            constructor(sheetId) {
+                this.sheetId = sheetId;
+            }
+            get name() { return "Google Sheet"; }
+            async getData() {
+                // Fetch public CSV via Google Viz API
+                const url = `https://docs.google.com/spreadsheets/d/${this.sheetId}/gviz/tq?tqx=out:csv`;
+                const response = await fetch(url);
+                const text = await response.text();
+                return this.parseCSV(text);
+            }
+
+            parseCSV(text) {
+                const lines = text.split('\n');
+                const result = [];
+                const headers = lines[0].replace(/"/g, '').split(',');
+
+                for (let i = 1; i < lines.length; i++) {
+                    const obj = {};
+                    const currentline = lines[i].replace(/"/g, '').split(',');
+                    for (let j = 0; j < headers.length; j++) {
+                        obj[headers[j].toLowerCase().trim()] = currentline[j];
+                    }
+                    result.push(obj);
+                }
+                return result;
+            }
+        }
+
+        class LocalFileAdapter {
+            constructor(file) {
+                this.file = file;
+            }
+            get name() { return "Local File"; }
+            async getData() {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const json = JSON.parse(e.target.result);
+                            resolve(json);
+                        } catch (err) {
+                            reject("Invalid File");
+                        }
+                    };
+                    reader.readAsText(this.file);
+                });
+            }
+        }
+
+        // Initialize Connector
+        const connector = new DataConnector();
+        connector.fetch(); // Load default
+
         // --- Three.js Setup ---
         const container = document.getElementById('canvas-container');
         const scene = new THREE.Scene();
@@ -851,32 +1169,89 @@
         // We'll use BufferGeometry for performance
         const geometry = new THREE.BufferGeometry();
         const positions = new Float32Array(config.particleCount * 3);
-        const targetPositions = new Float32Array(config.particleCount * 3); // Where particles want to go
-        const originalPositions = new Float32Array(config.particleCount * 3); // Base for shapes
+        const targetPositions = new Float32Array(config.particleCount * 3);
+        const colors = new Float32Array(config.particleCount * 3); // For Vertex Colors
 
-        // Initialize with random positions
-        for (let i = 0; i < config.particleCount * 3; i++) {
-            positions[i] = (Math.random() - 0.5) * 50;
-            targetPositions[i] = positions[i];
+        // Initialize positions & colors
+        const color1 = new THREE.Color(0x00f3ff); // Default Cyan
+        for (let i = 0; i < config.particleCount; i++) {
+            const i3 = i * 3;
+            positions[i3] = (Math.random() - 0.5) * 50;
+            positions[i3 + 1] = (Math.random() - 0.5) * 50;
+            positions[i3 + 2] = (Math.random() - 0.5) * 50;
+            targetPositions[i3] = positions[i3];
+            targetPositions[i3 + 1] = positions[i3 + 1];
+            targetPositions[i3 + 2] = positions[i3 + 2];
+
+            // Set initial color
+            colors[i3] = color1.r;
+            colors[i3 + 1] = color1.g;
+            colors[i3 + 2] = color1.b;
         }
 
         geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+        // Cache for animation loop
+        const positionAttribute = geometry.attributes.position;
+        const currentPositions = positions; // Alias for logic loops
 
         // Create a custom material or use PointsMaterial
         // Using a texture sprite for particles makes them look nicer
-        const sprite = new THREE.TextureLoader().load('https://threejs.org/examples/textures/sprites/disc.png');
+        // Generate a simple circle texture programmatically (Offline safe)
+        function createCircleTexture() {
+            const size = 64;
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const context = canvas.getContext('2d');
+            const center = size / 2;
+            const radius = size / 2;
+
+            context.beginPath();
+            context.arc(center, center, radius, 0, 2 * Math.PI, false);
+            context.fillStyle = 'white';
+            context.fill();
+
+            // Soft glow
+            const gradient = context.createRadialGradient(center, center, 0, center, center, radius);
+            gradient.addColorStop(0, 'rgba(255,255,255,1)');
+            gradient.addColorStop(0.5, 'rgba(255,255,255,0.5)');
+            gradient.addColorStop(1, 'rgba(255,255,255,0)');
+            context.fillStyle = gradient;
+            context.fill();
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        const sprite = createCircleTexture();
         const material = new THREE.PointsMaterial({
             size: config.baseSize,
-            color: state.targetColor,
+            vertexColors: true,
             map: sprite,
-            alphaTest: 0.5,
             transparent: true,
+            opacity: 0.8,
             blending: THREE.AdditiveBlending,
             depthWrite: false
         });
 
         const particles = new THREE.Points(geometry, material);
         scene.add(particles);
+
+        // --- PLEXUS CONNECTIONS (Data Nodes) ---
+        // Limited count to save CPU
+        const maxConnections = 200;
+        const lineMaterial = new THREE.LineBasicMaterial({
+            color: 0x00f3ff,
+            transparent: true,
+            opacity: 0.15
+        });
+        const lineGeometry = new THREE.BufferGeometry();
+        // Allocate buffer for lines (max 2 lines per node * maxConnections)
+        const linePos = new Float32Array(maxConnections * 2 * 3 * 2);
+        lineGeometry.setAttribute('position', new THREE.BufferAttribute(linePos, 3));
+        const lines = new THREE.LineSegments(lineGeometry, lineMaterial);
+        scene.add(lines);
 
         // --- Shape Generators ---
         // Helper to set a point in the target array
@@ -887,155 +1262,51 @@
         }
 
         const shapes = {
-            sphere: () => {
-                const r = 6;
-                for (let i = 0; i < config.particleCount; i++) {
-                    const phi = Math.acos(-1 + (2 * i) / config.particleCount);
-                    const theta = Math.sqrt(config.particleCount * Math.PI) * phi;
 
-                    const x = r * Math.cos(theta) * Math.sin(phi);
-                    const y = r * Math.sin(theta) * Math.sin(phi);
-                    const z = r * Math.cos(phi);
-                    setTarget(i, x, y, z);
-                }
-            },
-            heart: () => {
-                // Parametric heart
-                // x = 16sin^3(t)
-                // y = 13cos(t) - 5cos(2t) - 2cos(3t) - cos(4t)
-                // z = varied depth
-                const scale = 0.35;
-                for (let i = 0; i < config.particleCount; i++) {
-                    const t = Math.random() * Math.PI * 2;
-                    // Spread points somewhat randomly but adhering to volume
-                    const r = Math.random(); // Variance for filling inside
 
-                    // Simple outline
-                    let x = 16 * Math.pow(Math.sin(t), 3);
-                    let y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
-                    let z = (Math.random() - 0.5) * 4; // Thickness
 
-                    // Randomize slightly to fill volume
-                    const v = 1 - Math.random() * 0.2;
-                    x *= v; y *= v;
 
-                    setTarget(i, x * scale, y * scale + 2, z * scale);
-                }
-            },
-            flower: () => {
-                // Rose curve (polar) r = cos(k*theta)
-                const k = 4; // 4 petals
-                const scale = 4;
-                for (let i = 0; i < config.particleCount; i++) {
-                    const theta = Math.random() * Math.PI * 2;
-                    const r_curve = Math.cos(k * theta);
 
-                    // Add thickness and layers
-                    const r = (r_curve + 0.2) * scale * Math.random();
-
-                    const x = r * Math.cos(theta);
-                    const y = r * Math.sin(theta);
-                    const z = (Math.random() - 0.5) * (2 - r / scale); // Thicker center
-
-                    setTarget(i, x, y + 2, z);
-                }
-            },
-            saturn: () => {
-                const planetRadius = 3.5;
-                const ringInner = 4.5;
-                const ringOuter = 8;
-
-                for (let i = 0; i < config.particleCount; i++) {
-                    if (i < config.particleCount * 0.4) {
-                        // Planet body (Sphere)
-                        const phi = Math.acos(-1 + (2 * i) / (config.particleCount * 0.4));
-                        const theta = Math.sqrt(config.particleCount * Math.PI) * phi;
-                        const x = planetRadius * Math.cos(theta) * Math.sin(phi);
-                        const y = planetRadius * Math.sin(theta) * Math.sin(phi);
-                        const z = planetRadius * Math.cos(phi);
-                        setTarget(i, x, y, z);
-                    } else {
-                        // Rings (Disc)
-                        const angle = Math.random() * Math.PI * 2;
-                        const dist = ringInner + Math.random() * (ringOuter - ringInner);
-                        const x = dist * Math.cos(angle);
-                        const z = dist * Math.sin(angle);
-                        const y = (Math.random() - 0.5) * 0.2; // Thin ring
-
-                        // Tilt the ring
-                        const tilt = Math.PI / 6;
-                        const yt = y * Math.cos(tilt) - x * Math.sin(tilt);
-                        const xt = y * Math.sin(tilt) + x * Math.cos(tilt);
-
-                        setTarget(i, xt, yt, z);
-                    }
-                }
-            },
-            buddha: () => {
-                // Simplified Meditating Figure (Solid Geometry Construction)
-                // Head (sphere), Body (Ellipsoid), Legs (Torus segment/Cylinders)
-                const headR = 1.5;
-                const bodyR = 2.5;
-
-                for (let i = 0; i < config.particleCount; i++) {
-                    const r = Math.random();
-                    // Distribute points: 20% Head, 40% Body, 40% Legs/Base
-
-                    if (r < 0.2) {
-                        // Head
-                        const theta = Math.random() * Math.PI * 2;
-                        const phi = Math.random() * Math.PI;
-                        const rad = headR;
-                        const x = rad * Math.sin(phi) * Math.cos(theta);
-                        const y = rad * Math.sin(phi) * Math.sin(theta) + 3.5; // Offset up
-                        const z = rad * Math.cos(phi);
-                        setTarget(i, x, y, z);
-                    } else if (r < 0.6) {
-                        // Body
-                        const theta = Math.random() * Math.PI * 2;
-                        const phi = Math.random() * Math.PI;
-                        const x = bodyR * 0.9 * Math.sin(phi) * Math.cos(theta);
-                        const y = bodyR * 1.2 * Math.sin(phi) * Math.sin(theta); // Elongated Y
-                        const z = bodyR * 0.8 * Math.cos(phi);
-                        setTarget(i, x, y, z);
-                    } else {
-                        // Legs/Base (Wide flatten sphere/torus approx)
-                        const angle = Math.random() * Math.PI * 2; // -PI to PI
-                        // We want a semi-circle loop for crossed legs
-                        const rad = 3.5 + Math.random() * 0.5;
-                        const x = rad * Math.cos(angle);
-                        const y = -2.0 + (Math.random() * 1.5);
-                        const z = rad * Math.sin(angle) * 0.6; // Flattened depth
-
-                        // Cut off back to make it look like knees forward? 
-                        // Lets just make a wide base ellipsoid
-                        setTarget(i, x, y, z);
-                    }
-                }
-            },
             funnel: () => {
-                // GTM Revenue Funnel (Tornado/Cone)
-                // Top (Leads) -> Wide, Bottom (Revenue) -> Narrow
+                // GTM Revenue Funnel (Tornado/Cone) with Multi-Color Stages
+                const height = 12;
+                const topRadius = 6;
+                const bottomRadius = 0.5;
+
+                // Colors for stages
+                const cLeads = new THREE.Color(0x00f3ff);   // Cyan (Top)
+                const cOpp = new THREE.Color(0xffaa00);     // Orange (Mid)
+                const cWon = new THREE.Color(0x00ff88);     // Green (Bottom)
+
+                const colorsAttribute = geometry.attributes.color;
+
                 for (let i = 0; i < config.particleCount; i++) {
-                    const progress = i / config.particleCount; // 0 to 1
+                    const h = Math.random() * height; // 0 to 12
+                    const y = h - (height / 2); // Center Y
 
-                    // Distribution: More particles at the top (Leads)
-                    // We map linear index to a powered distribution 
-                    const h = (Math.pow(Math.random(), 0.8) * 7) - 3; // -3 to 4 mapped
+                    // Radius decreases as we go down (simple linear)
+                    // h=0(bottom) -> r=bottomRadius, h=12(top) -> r=topRadius
+                    const progress = h / height; // 0 (bottom) to 1 (top)
+                    const r = bottomRadius + (topRadius - bottomRadius) * progress;
 
-                    // Radius decreases as height decreases
-                    // h = 4 (Top) -> r = 3.5
-                    // h = -3 (Bottom) -> r = 0.2
-                    const radius = ((h + 3.5) / 7.5) * 3.5 + 0.1;
+                    const theta = Math.random() * Math.PI * 2 * 4 + (y * 2); // Spiral
+                    const x = r * Math.cos(theta);
+                    const z = r * Math.sin(theta);
 
-                    const angle = Math.random() * Math.PI * 2 + (h * 2); // Twist
+                    // --- ASSIGN COLORS BY STAGE ---
+                    const i3 = i * 3;
+                    let c = cLeads;
+                    if (progress < 0.3) c = cWon;        // Bottom 30% = Won
+                    else if (progress < 0.6) c = cOpp;   // Mid 30% = Opportunity
 
-                    const x = radius * Math.cos(angle);
-                    const z = radius * Math.sin(angle);
-                    const y = h;
+                    // Update Color Buffer
+                    colorsAttribute.array[i3] = c.r;
+                    colorsAttribute.array[i3 + 1] = c.g;
+                    colorsAttribute.array[i3 + 2] = c.b;
 
                     setTarget(i, x, y, z);
                 }
+                colorsAttribute.needsUpdate = true;
             },
             globe: () => {
                 // Global Command Center (Geo-Sphere with Hotspots)
@@ -1100,25 +1371,17 @@
                     setTarget(i, x, y, z);
                 }
             },
-            fireworks: () => {
-                // Burst from center
-                for (let i = 0; i < config.particleCount; i++) {
-                    // Random direction
-                    const theta = Math.random() * Math.PI * 2;
-                    const phi = Math.random() * Math.PI;
-                    // Random radius mostly at edge
-                    const r = 2 + Math.random() * 8;
 
-                    const x = r * Math.sin(phi) * Math.cos(theta);
-                    const y = r * Math.sin(phi) * Math.sin(theta);
-                    const z = r * Math.cos(phi);
-                    setTarget(i, x, y, z);
-                }
-            }
         };
 
         // Initialize default shape
-        shapes[state.currentShape]();
+        if (shapes[state.currentShape]) {
+            shapes[state.currentShape]();
+        } else {
+            console.warn(`Shape ${state.currentShape} missing, defaulting to funnel`);
+            state.currentShape = 'funnel';
+            shapes['funnel']();
+        }
 
         // --- Interaction & Event Listeners ---
         function switchShape(shapeName) {
@@ -1138,11 +1401,48 @@
             btn.addEventListener('click', () => switchShape(btn.dataset.shape));
         });
 
+        // Settings Modal Toggle
+        function toggleSettings() {
+            const modal = document.getElementById('settings-modal');
+            modal.classList.toggle('visible');
+        }
+
         // Help Modal Toggle
         function toggleHelp() {
             const modal = document.getElementById('help-modal');
             modal.classList.toggle('visible');
         }
+
+        // Data Input Logic (In Modal)
+        setTimeout(() => {
+            const sheetInput = document.getElementById('sheet-input-modal');
+            if (sheetInput) {
+                // 1. Paste ID
+                sheetInput.addEventListener('change', (e) => {
+                    const val = e.target.value.trim();
+                    if (val.length > 5) connector.use(new GoogleSheetAdapter(val));
+                });
+
+                // 2. Drag & Drop (on wrapper)
+                const wrapper = sheetInput.parentElement;
+                wrapper.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    wrapper.classList.add('drag-active');
+                });
+                wrapper.addEventListener('dragleave', (e) => {
+                    wrapper.classList.remove('drag-active');
+                });
+                wrapper.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    wrapper.classList.remove('drag-active');
+                    const files = e.dataTransfer.files;
+                    if (files.length > 0) {
+                        sheetInput.value = files[0].name;
+                        connector.use(new LocalFileAdapter(files[0]));
+                    }
+                });
+            }
+        }, 1000);
 
         // Show help on first load (after minimal delay)
         setTimeout(() => {
@@ -1827,9 +2127,7 @@
             }
 
             // Auto-rotate ONLY if not grabbing (and not in momentum)
-            if (!state.isGrabbing && !state.momentumActive) {
-                state.objectRotation.y += 0.002;
-            }
+
 
             // Apply proper rotations from state
             // Lerp towards the state rotation for smoothness
@@ -1855,48 +2153,68 @@
             particles.scale.lerp(new THREE.Vector3(finalScale, finalScale, finalScale), 0.08);
 
             // --- Color Logic with Visual Feedback ---
+            // NOTE: With Vertex Colors, we stop setting material.color globally
+            // UNLESS we want to tint everything. 
+            // For now, we only tint if NOT in multicolor mode.
+
             let targetColor = state.baseColor.clone();
 
-            // DATA DRIVEN COLORING (New)
-            // Override base color if in specific data modes
-            if (state.currentShape === 'funnel') {
-                // Gradient based on Height (Y)
-                // We need access to the particle's target Y or current Y.
-                // Since this loop is per-frame global, we can't easily color per-particle HERE 
-                // unless we use a Shader or Vertex Colors.
-                // Three.js PointsMaterial 'color' is global.
-                // To do per-particle colors, we need to switch to Vertex Colors.
+            if (state.currentShape !== 'funnel') {
+                // Use Global Tint for Single-Color Shapes
+                // (targetColor is already cloned base)
+                if (state.isGrabbing) targetColor.setHex(0xffaa44);
+                if (state.isDoublePinching) targetColor.lerp(new THREE.Color(0xffffff), 0.3);
 
-                // For this demo (MVP), we will shift the GLOBAL color based on interaction
-                // OR we can't do per-node color without BufferGeometry attribute updates.
-
-                // DECISION: To keep it simple/performant: 
-                // We stick to Global Color shifting for now.
-                // Funnel: Shifts to Gold when "grabbing" (Reaching revenue).
-
-                if (state.isGrabbing) {
-                    targetColor.setHex(0xffd700); // Gold (Revenue)
-                } else {
-                    targetColor.setHex(0x00f3ff); // Cyan (Leads)
-                }
-
-            } else if (state.currentShape === 'globe') {
-                if (state.isGrabbing) {
-                    targetColor.setHex(0x00ff88); // Green (Global Growth)
-                }
+                // Update all vertex colors to this target (Simulating global color)
+                // Optimized: Do this only if color chagned? 
+                // For MVP, just updating material.color works IF vertexColors is false.
+                // But we have vertexColors=true. So material.color is MULTIPLIED.
+                material.color.lerp(targetColor, 0.1);
+            } else {
+                // In funnel mode, keep material white so vertex colors show true
+                material.color.setHex(0xffffff);
             }
 
-            // Standard Interactions (overrides only if not set above or mixing)
-            // Color shift during grab (warmer tint)
-            if (state.isGrabbing && state.currentShape !== 'funnel') {
-                const grabTint = new THREE.Color(0xffaa44); // Warm orange
-                targetColor.lerp(grabTint, 0.3);
-            }
+            // --- PLEXUS UPDATE (Lines) ---
+            // Connect first N particles if close enough
+            if (state.currentShape === 'journey' || state.currentShape === 'globe') {
+                let lineIdx = 0;
+                const pos = currentPositions;
+                const lPos = lineGeometry.attributes.position.array;
 
-            // Brighter during zoom
-            if (state.isDoublePinching) {
-                const zoomTint = new THREE.Color(0xffffff); // White boost
-                targetColor.lerp(zoomTint, 0.2);
+                // Only check a subset of particles for connections
+                for (let i = 0; i < maxConnections; i++) {
+                    const ix = i * 3;
+                    const p1 = { x: pos[ix], y: pos[ix + 1], z: pos[ix + 2] };
+
+                    // Check neighbors
+                    for (let j = i + 1; j < maxConnections; j++) {
+                        const jx = j * 3;
+                        const dist = Math.sqrt(
+                            Math.pow(p1.x - pos[jx], 2) +
+                            Math.pow(p1.y - pos[jx + 1], 2) +
+                            Math.pow(p1.z - pos[jx + 2], 2)
+                        );
+
+                        if (dist < 3.0) { // Connection threshold
+                            // Add line
+                            lPos[lineIdx++] = p1.x;
+                            lPos[lineIdx++] = p1.y;
+                            lPos[lineIdx++] = p1.z;
+
+                            lPos[lineIdx++] = pos[jx];
+                            lPos[lineIdx++] = pos[jx + 1];
+                            lPos[lineIdx++] = pos[jx + 2];
+
+                            if (lineIdx >= lPos.length) break;
+                        }
+                    }
+                }
+                lineGeometry.setDrawRange(0, lineIdx / 3);
+                lineGeometry.attributes.position.needsUpdate = true;
+                lines.visible = true;
+            } else {
+                lines.visible = false;
             }
 
             // Slight red shift during high tension
@@ -1905,7 +2223,11 @@
                 targetColor.lerp(tensionTint, (state.tension - 0.7) * 1.5);
             }
 
-            material.color.lerp(targetColor, 0.1);
+            if (state.currentShape !== 'funnel') {
+                material.color.lerp(targetColor, 0.1);
+            } else {
+                material.color.setHex(0xffffff);
+            }
 
             // --- Apply Grab Offset (Pinch-and-Drag) ---
             // Smoothly lerp the particle group position towards the target offset
@@ -1944,8 +2266,8 @@
 
             // --- Data Tooltip Logic ---
             const tooltip = document.getElementById('data-tooltip');
-            const ttTitle = document.getElementById('tooltip-title');
-            const ttValue = document.getElementById('tooltip-value');
+            const ttTitle = document.getElementById('tt-title');
+            const ttValue = document.getElementById('tt-value');
 
             // Show tooltip when interacting (Grabbing)
             if (state.isGrabbing) {
@@ -1963,18 +2285,18 @@
                 tooltip.style.left = `${x}px`;
                 tooltip.style.top = `${y}px`;
 
-                // Update Content based on Mode
+                // Update Content based on Mode (Dynamic Data from Phase 8)
                 if (state.currentShape === 'funnel') {
                     ttTitle.innerText = "Revenue Forecast";
-                    ttValue.innerText = "Value: $1.2M (Projected)";
+                    ttValue.innerText = `Forecast: $${state.data.revenue.forecast}`;
                     tooltip.style.borderColor = "#ffd700"; // Gold
                 } else if (state.currentShape === 'globe') {
-                    ttTitle.innerText = "Regional Growth";
-                    ttValue.innerText = "EMEA: +24% YoY";
+                    ttTitle.innerText = "APAC Growth";
+                    ttValue.innerText = `Growth: +${state.data.regions.apac.growth}% YoY`;
                     tooltip.style.borderColor = "#00ff88"; // Green
                 } else if (state.currentShape === 'journey') {
                     ttTitle.innerText = "Conversion Rate";
-                    ttValue.innerText = "Funnel: 3.4% (Avg)";
+                    ttValue.innerText = `Funnel: ${state.data.funnel.conversion_rate}% (Avg)`;
                     tooltip.style.borderColor = "#00f3ff"; // Cyan
                 } else {
                     ttTitle.innerText = "System Status";

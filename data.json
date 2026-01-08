@@ -1,0 +1,23 @@
+{
+    "meta": {
+        "generated_at": "2026-01-08T10:00:00Z",
+        "source": "Salesforce Prod"
+    },
+    "revenue": {
+        "current": 1250000,
+        "target": 1500000,
+        "forecast": "1.42M",
+        "growth_yoy": 24.5
+    },
+    "funnel": {
+        "leads": 4503,
+        "opportunities": 320,
+        "deals": 45,
+        "conversion_rate": 3.4
+    },
+    "regions": {
+        "emea": { "growth": 12, "status": "stable" },
+        "apac": { "growth": 45, "status": "hot" },
+        "na": { "growth": 8, "status": "slow" }
+    }
+}
