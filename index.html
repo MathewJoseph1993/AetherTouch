@@ -965,7 +965,7 @@
         };
 
         const state = {
-            currentShape: 'sphere',
+            currentShape: 'funnel',
             handDetected: false,
             // ... (existing state) ...
 
@@ -1191,14 +1191,43 @@
         geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
         geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
+        // Cache for animation loop
+        const positionAttribute = geometry.attributes.position;
+        const currentPositions = positions; // Alias for logic loops
+
         // Create a custom material or use PointsMaterial
         // Using a texture sprite for particles makes them look nicer
-        const sprite = new THREE.TextureLoader().load('https://threejs.org/examples/textures/sprites/disc.png');
+        // Generate a simple circle texture programmatically (Offline safe)
+        function createCircleTexture() {
+            const size = 64;
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const context = canvas.getContext('2d');
+            const center = size / 2;
+            const radius = size / 2;
+
+            context.beginPath();
+            context.arc(center, center, radius, 0, 2 * Math.PI, false);
+            context.fillStyle = 'white';
+            context.fill();
+
+            // Soft glow
+            const gradient = context.createRadialGradient(center, center, 0, center, center, radius);
+            gradient.addColorStop(0, 'rgba(255,255,255,1)');
+            gradient.addColorStop(0.5, 'rgba(255,255,255,0.5)');
+            gradient.addColorStop(1, 'rgba(255,255,255,0)');
+            context.fillStyle = gradient;
+            context.fill();
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        const sprite = createCircleTexture();
         const material = new THREE.PointsMaterial({
             size: config.baseSize,
-            vertexColors: true, // ENABLE MULTI-COLOR
+            vertexColors: true,
             map: sprite,
-            alphaTest: 0.5,
             transparent: true,
             opacity: 0.8,
             blending: THREE.AdditiveBlending,
@@ -1345,7 +1374,13 @@
         };
 
         // Initialize default shape
-        shapes[state.currentShape]();
+        if (shapes[state.currentShape]) {
+            shapes[state.currentShape]();
+        } else {
+            console.warn(`Shape ${state.currentShape} missing, defaulting to funnel`);
+            state.currentShape = 'funnel';
+            shapes['funnel']();
+        }
 
         // --- Interaction & Event Listeners ---
         function switchShape(shapeName) {
