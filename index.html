@@ -743,6 +743,23 @@
     <!-- Canvas -->
     <div id="canvas-container"></div>
 
+    <!-- Attribution Legend (Phase 8.6) -->
+    <div class="legend-panel">
+        <div class="legend-item">
+            <div class="dot" style="background:#00f3ff; color:#00f3ff"></div>Leads (Cold)
+        </div>
+        <div class="legend-item">
+            <div class="dot" style="background:#ffaa00; color:#ffaa00"></div>Qualified (Warm)
+        </div>
+        <div class="legend-item">
+            <div class="dot" style="background:#00ff88; color:#00ff88"></div>Revenue (Hot)
+        </div>
+    </div>
+
+    <!-- 3D Labels Layer -->
+    <div id="labels-layer"
+        style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; overflow:hidden;"></div>
+
     <!-- Bottom Dock -->
     <div id="bottom-dock">
         <!-- Status Section -->
@@ -2307,17 +2324,15 @@
                 lines.visible = false;
             }
 
-            // Slight red shift during high tension
+            // Lighten tension tint
             if (state.tension > 0.7 && !state.isGrabbing) {
                 const tensionTint = new THREE.Color(0xff6666); // Reddish
                 targetColor.lerp(tensionTint, (state.tension - 0.7) * 1.5);
             }
 
-            if (state.currentShape !== 'funnel') {
-                material.color.lerp(targetColor, 0.1);
-            } else {
-                material.color.setHex(0xffffff);
-            }
+            // Always apply target color (User Tint + State Tint)
+            // This allows the Color Picker to work even on Multi-Color shapes (it will blend)
+            material.color.lerp(targetColor, 0.1);
 
             // --- Apply Grab Offset (Pinch-and-Drag) ---
             // Smoothly lerp the particle group position towards the target offset
