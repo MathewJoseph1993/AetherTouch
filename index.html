@@ -1015,6 +1015,7 @@
             isZooming: false,          // Flag for zoom state
             lastScaleFactor: 1.0,      // For smooth scale transitions
             targetColor: new THREE.Color(0x00f3ff),
+            activeLabels: [],          // Phase 8.6: 3D Labels storage
             baseColor: new THREE.Color(0x00f3ff),
             time: 0,
             // Momentum/Inertia state
@@ -1069,21 +1070,49 @@
             }
 
             parseUnifiedData(raw) {
-                if (raw.revenue && raw.funnel) return raw; // JSON structure match
+                // Phase 8.5.1: Intelligent Schema Mapper
+                // If raw is already our structured JSON (from Mock), return it.
+                if (raw.revenue && raw.funnel) return raw;
 
-                // CSV/Array structure match (Google Sheets)
-                // Default:Row 0=Rev, Row 1=Funnel, Row 2=Regions
-                return {
-                    revenue: {
-                        forecast: raw[0]?.value || "$1.2M",
-                        growth_yoy: parseFloat(raw[0]?.growth || 0)
-                    },
-                    funnel: { conversion_rate: parseFloat(raw[1]?.value || 3.4) },
-                    regions: {
-                        emea: { growth: parseFloat(raw[2]?.value || 0) },
-                        apac: { growth: parseFloat(raw[2]?.growth || 0) }
-                    }
+                const mapped = {
+                    revenue: { forecast: "$1.2M", growth_yoy: 15 },
+                    funnel: { conversion_rate: 3.4 }, // Default
+                    regions: { emea: { growth: 12 }, apac: { growth: 8 } }
                 };
+
+                // Array/CSV Mode (Sheet) - Dynamic Mapping
+                if (Array.isArray(raw)) {
+                    // Try to find keys in the first row objects
+                    const rows = raw;
+
+                    rows.forEach(row => {
+                        // Normalize keys
+                        const keys = Object.keys(row);
+                        keys.forEach(k => {
+                            const val = row[k];
+                            const lowerK = k.toLowerCase();
+                            const numVal = parseFloat(val) || 0;
+
+                            // Intelligence Logic: Keyword Matching
+                            if (lowerK.includes('conversion') || lowerK.includes('rate')) {
+                                mapped.funnel.conversion_rate = numVal;
+                            }
+                            if (lowerK.includes('revenue') || lowerK.includes('forecast')) {
+                                mapped.revenue.forecast = val; // Keep string formatting
+                            }
+                            if (lowerK.includes('growth')) {
+                                mapped.revenue.growth_yoy = numVal;
+                            }
+                            if (lowerK.includes('emea')) {
+                                mapped.regions.emea.growth = numVal;
+                            }
+                            if (lowerK.includes('apac')) {
+                                mapped.regions.apac.growth = numVal;
+                            }
+                        });
+                    });
+                }
+                return mapped;
             }
         }
 
@@ -1268,10 +1297,32 @@
 
 
             funnel: () => {
+                // Phase 8.5.2: Generative Data Shape
                 // GTM Revenue Funnel (Tornado/Cone) with Multi-Color Stages
+                // Geometry reacts to Conversion Rate
+
+                const conversionRate = state.data?.funnel?.conversion_rate || 3.5;
+
+                // Logic:
+                // High Conversion (>5%) = Steeper, Narrower Funnel (Efficient)
+                // Low Conversion (<2%) = Wider, Flatter Funnel (Leaky)
+
+                // Base dimensions
                 const height = 12;
-                const topRadius = 6;
-                const bottomRadius = 0.5;
+                let topRadius = 6;
+                let bottomRadius = 0.5;
+
+                if (conversionRate > 5.0) {
+                    topRadius = 4.0; // Efficient
+                    bottomRadius = 0.8;
+                } else if (conversionRate < 2.0) {
+                    topRadius = 9.0; // Leaky/Wide
+                    bottomRadius = 0.2;
+                } else {
+                    // Interpolate 2.0 -> 5.0
+                    // 2.0 -> rad 8, 5.0 -> rad 5
+                    topRadius = 8 - (conversionRate - 2);
+                }
 
                 // Colors for stages
                 const cLeads = new THREE.Color(0x00f3ff);   // Cyan (Top)
@@ -1341,13 +1392,20 @@
                 }
             },
             journey: () => {
+                // Phase 8.5.2: Generative Data Shape
                 // Customer Journey Flow (Splines/Curves)
                 // Left (-10) to Right (+10) Flow
 
+                // DATA MAPPING:
+                // Top Branch = EMEA (Growth determines thickness)
+                // Bot Branch = APAC (Growth determines thickness)
+                // Mid Branch = Core/Base
+
+                const emeaGrowth = state.data?.regions?.emea?.growth || 10;
+                const apacGrowth = state.data?.regions?.apac?.growth || 10;
+
                 // 3 Channels merging into 1
                 for (let i = 0; i < config.particleCount; i++) {
-                    // We'll define x linearly from left to right
-                    // But scatter them a bit for volume
                     const t = Math.random();
                     const x = (t * 20) - 10;
 
@@ -1362,11 +1420,22 @@
                     // Randomly assign to a branch
                     const branchID = Math.floor(Math.random() * 3);
 
-                    if (branchID === 0) y = 5 * mergeFactor + Math.sin(x) * 0.5; // Top Branch
-                    if (branchID === 1) y = 0 + Math.sin(x * 1.2) * 0.5;           // Mid Branch
-                    if (branchID === 2) y = -5 * mergeFactor + Math.sin(x * 0.8) * 0.5; // Bot Branch
+                    let thickness = 2; // Default
 
-                    z = (Math.random() - 0.5) * 2; // Thickness
+                    if (branchID === 0) { // Top (EMEA)
+                        y = 5 * mergeFactor + Math.sin(x) * 0.5;
+                        thickness = Math.max(0.5, emeaGrowth / 4); // Growth 12 -> 3.0 width
+                    }
+                    if (branchID === 1) { // Mid
+                        y = 0 + Math.sin(x * 1.2) * 0.5;
+                        thickness = 1.5;
+                    }
+                    if (branchID === 2) { // Bot (APAC)
+                        y = -5 * mergeFactor + Math.sin(x * 0.8) * 0.5;
+                        thickness = Math.max(0.5, apacGrowth / 4);
+                    }
+
+                    z = (Math.random() - 0.5) * thickness;
 
                     setTarget(i, x, y, z);
                 }
@@ -1383,10 +1452,31 @@
             shapes['funnel']();
         }
 
+        // --- Holographic Support (Phase 8.6) ---
+        const sceneExtras = new THREE.Group();
+        scene.add(sceneExtras);
+
+        function clearSceneExtras() {
+            // Remove all children from the extras group
+            while (sceneExtras.children.length > 0) {
+                const child = sceneExtras.children[0];
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) child.material.dispose();
+                sceneExtras.remove(child);
+            }
+            // Remove DOM Labels
+            const labelLayer = document.getElementById('labels-layer');
+            while (labelLayer.firstChild) {
+                labelLayer.removeChild(labelLayer.firstChild);
+            }
+            state.activeLabels = [];
+        }
+
         // --- Interaction & Event Listeners ---
         function switchShape(shapeName) {
             if (shapes[shapeName]) {
                 state.currentShape = shapeName;
+                clearSceneExtras(); // Clean up guides/labels
                 shapes[shapeName]();
 
                 // Update UI buttons
@@ -2305,6 +2395,40 @@
                 }
             } else {
                 tooltip.style.display = 'none';
+            }
+
+            // --- Update 3D Labels (Phase 8.6) ---
+            if (state.activeLabels && state.activeLabels.length > 0) {
+                state.activeLabels.forEach(lbl => {
+                    // Start with the object's 3D position
+                    // We must account for the Shape Group's global rotation if applicable
+                    // But here, shapes are particles. The positions are static relative to world 0,0,0 usually.
+                    // However, we apply 'currentRotation' to particles? No, we rotate 'lines' and 'particles' only if we rotate scene? 
+                    // Actually, we rotate the camera or the objects?
+                    // Let's assume the label pos is World Space.
+
+                    const pos = lbl.position.clone();
+
+                    // Project
+                    pos.project(camera);
+
+                    // Check visibility (behind camera?)
+                    // pos.z > 1 means behind 'far' or behind camera depending on projection.
+                    // In Three.js, z is -1 to 1. >1 is weird? No, usually z > 1 is strictly clipped.
+
+                    if (pos.z > 1 || Math.abs(pos.x) > 1 || Math.abs(pos.y) > 1) {
+                        lbl.element.style.opacity = '0';
+                    } else {
+                        lbl.element.style.opacity = '1';
+                        const x = (pos.x * .5 + .5) * window.innerWidth;
+                        const y = (-(pos.y * .5) + .5) * window.innerHeight;
+
+                        // Use transform for performance
+                        lbl.element.style.transform = `translate(${x}px, ${y}px)`;
+                        lbl.element.style.left = '0px';
+                        lbl.element.style.top = '0px';
+                    }
+                });
             }
 
             renderer.render(scene, camera);
