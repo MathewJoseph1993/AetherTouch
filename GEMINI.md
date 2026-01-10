@@ -1,77 +1,64 @@
-# Session Summary: AetherTouch Upgrades
+# Session Summary: AetherTouch GTM Dashboard
 
-## 📅 Date: January 8, 2026
-**Branch:** `main` (Phase 1 & 2 merged)
+## 📅 Date: January 9, 2026
+**Branch:** `feature/saas-overhaul` (Latest)
+**Status:** Ready for Deployment (Phase 9)
 
-## 🚀 Achievements
+## 🚀 Achievements: The SaaS Transformation
 
-### Phase 1: Quick Wins ✅
+This session completely transformed AetherTouch from a "Particle Toy" into a **Professional GTM Dashboard**.
+
+### Phase 8: SaaS Visuals & Data ✅
 | Feature | Description |
 |---------|-------------|
-| **Grab Momentum** | Object continues gliding after release (position + rotation), friction 0.92 |
-| **Visual Feedback** | Warm orange tint on grab, white glow on zoom, red pulse on high tension |
-| **Namaste Cooldown** | 500ms cooldown prevents accidental re-triggers |
+| **Vertex Colors** | Implemented multi-color particles (Cyan->Gold->Green) for data stages |
+| **Plexus Connections** | Added line connections to the first 200 particles for a "Network" look |
+| **Crash Fixes** | Resolved "Black Screen" (ReferenceError) and missing shape crashes |
+| **Glassmorphism UI** | Created a "Zen" settings modal and bottom dock |
 
-### Phase 2: Fingerpose Integration ✅
+### Phase 8.5: Intelligence Layer (New) ✅
 | Feature | Description |
 |---------|-------------|
-| **Library** | Fingerpose v0.1.0 via CDN |
-| **Custom Gestures** | `pinch`, `open_hand`, `fist` definitions |
-| **Hybrid Detection** | Distance-based + 15% Fingerpose boost (not replacement) |
-| **Tension Boost** | Fist gesture adds up to 30% tension boost |
+| **Intelligent Adapter** | `DataConnector` now auto-maps keys like `conversion`, `growth` to visual stats |
+| **Generative Funnel** | Funnel geometry physically changes based on Conversion Rate (Wide vs Steep) |
+| **Generative Flow** | Journey stream thickness reacts to Regional Growth metrics |
 
-### Phase 3: Performance (New) ✅
+### Phase 8.6: Contextual Geometry (New) ✅
 | Feature | Description |
 |---------|-------------|
-| **Adaptive Particles** | 5000 (Desktop) / 2000 (Mobile) particles |
-| **FPS Monitoring** | Real-time counter + performance logs |
-| **Hot Path Opt** | Zero-allocation `onResults` loop (reduced GC) |
+| **Holographic Guides** | Added 3D Rings/Grids to the funnel to show scale (Leads vs Won) |
+| **3D Floating Labels** | Implemented `activeLabels` system to project 3D text (e.g., "$1.2M") to 2D overlay |
+| **Attribution Legend** | Added UI panel explaining the color codes |
 
-### Phase 4: UI/UX Polish (New) ✅
-| Feature | Description |
-|---------|-------------|
-| **Gesture Guide** | Help Modal (?) with interactive icons |
-| **Mobile UI** | Responsive layout (stacked controls bottom) |
-| **Visuals** | Glassmorphism, button hover effects |
-
-### Bug Fixes Applied
+### Bug Fixes
 | Issue | Fix |
 |-------|-----|
-| Namaste not triggering | Increased threshold to 0.28, use raw positions |
-| Pinch too hard to trigger | Lowered thresholds (enter: 55%, exit: 40%) |
-| Fingerpose breaking detection | Changed from 60/40 hybrid to boost-only |
-| **Steering Asymmetry** | Fixed XOR condition (works with either hand) |
-| **Incomplete Shapes** | Fixed particle reduction bug chopping geometry |
+| **Shape Switching Crash** | Fixed `null` error by inserting missing `labels-layer` into DOM |
+| **Color Tinting Locked** | Unlocked Color Picker in `animate()` loop to allow user tinting on all shapes |
+| **Invisible Particles** | Replaced remote texture with local `CanvasTexture` for offline support |
 
-## 🎮 Current Gesture Controls
+## 🎮 Current Capabilities
 
-| Mode | Gesture | Action |
-|------|---------|--------|
-| **Grab & Drag** | Pinch (thumb+index) | Move object, has momentum on release |
-| **Rotate** | Pinch + rotate wrist | Spin object (Z-axis), has spin momentum |
-| **Zoom** | Double-pinch (both hands) | Scale up/down with glow effect |
-| **Steer** | Pinch + Open Hand | Rotate Z-axis (any hand combo) |
-| **Reset** | Namaste (palms together) | Reset position, rotation, scale |
+| Mode | Visuals | Data Driver |
+|------|---------|-------------|
+| **Revenue Funnel** | Multi-Color Cone + Rings | **Conversion Rate** controls steepness |
+| **Global Command** | Plexus Sphere + Hotspots | **Regional Growth** controls hotspot density |
+| **Journey Flow** | Spline Rivers (3 Branches) | **Channel Volume** controls stream thickness |
 
-## 🛠 Technical Stack
-- **Three.js r128**: 3D rendering, 5000/2000 particles
-- **MediaPipe Hands**: Real-time hand tracking (2 hands)
-- **Fingerpose 0.1.0**: Gesture recognition boost
-- **OneEuroFilter**: Adaptive smoothing for positions
-- **GestureDebouncer**: Temporal filtering for states
+## 🛠 Technical Stack Updates
+- **DataConnector**: Strategy pattern for Google Sheets / Local CSV / Mock JSON.
+- **SceneExtras**: New Three.js Group for managing non-particle objects (rings, lines).
+- **LabelSystem**: Matrix projection logic for tracking 3D points in 2D CSS.
 
-## ⏭ Next Steps: Release
-- [x] Phase 3: Performance Optimization
-- [x] Phase 4: UI/UX Polish
-- [x] Phase 5: Documentation & Cleanup
-- [ ] Merge `fix/steering-logic` to `main`
+## ⏭ Next Steps: Phase 9 (Deployment)
+- [ ] Create `vercel.json` for static deployment.
+- [ ] Bundle `data.json` and assets.
+- [ ] Final production build check.
 
-## 📁 Project Structure
-- `index.html`: Single-file app (~1600 lines)
-- `CLAUDE.md`: Claude Code instructions
-- `GEMINI.md`: This session summary
-- `BRANDING.md`: Design guidelines
-- `CONTRIBUTING.md`: Contribution guide
+## 📁 Key Files
+- `index.html`: The core application (updated with SaaS logic).
+- `gap_analysis.md`: Detailed critique leading to Phase 8.5/8.6.
+- `walkthrough.md`: Visual proof of work.
 
 ---
 *End of Session Report*
