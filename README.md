@@ -1,89 +1,55 @@
-# AetherTouch 🌌✋
+# AetherTouch GTM 🌌📊
 
-> **"Any sufficiently advanced technology is indistinguishable from magic."** - Arthur C. Clarke
+> **"Data Visualization at the Speed of Thought."**
 
-**AetherTouch** is a futuristic, touchless interactive particle system that allows you to manipulate 3D objects using hand gestures, inspired by the holographic interfaces seen in movies like *Iron Man*.
+**AetherTouch GTM** is a next-generation **Revenue Operations Dashboard** that reimagines how GTM Engineering teams visualize pipeline health. It replaces static 2D charts with an immersive, gesture-controlled 3D particle system.
 
-<!-- TODO: Add a demo GIF or screenshot here -->
+## ✨ Key Features
 
-## ✨ Features
+### 🚀 Generative Data Shapes
+Physical geometry that adapts to your metrics (Phase 8.5 Intelligence Layer):
+*   **Revenue Funnel**: A tornado-like structure where **width = conversion rate** and **height = pipeline velocity**.
+*   **Global Command**: A geo-sphere highlighting active markets (EMEA, APAC, AMER) with real-time growth heatmaps.
+*   **Journey Flow**: Spline-based rivers showing multi-channel attribution traffic merging into revenue.
 
-### 🦾 Iron Man Interface (The "Super-Hand")
-Experience 6DoF (Six Degrees of Freedom) control without touching a screen:
+### 🧠 Intelligent Context
+*   **Holographic Guides**: Coordinate rings providing scale and reference (Leads vs Won).
+*   **3D Floating Labels**: Dynamic text indicating metric values in 3D space.
+*   **Attribution Legend**: Clear color coding for Lead Stages (Cyan/Cold -> Gold/Warm -> Green/Won).
 
-| Gesture | Action | Result |
-| :--- | :--- | :--- |
-| **Hover** | Open Hands | **Idle / Focus** |
-| **Grab** | One Hand Pinch | **Drag** objects through space |
-| **Twist** | One Hand Pinch + Rotate | **Rotate** objects (Z-Axis Roll) |
-| **Elastic Zoom** | **Double Pinch** (Both Hands) | **Stretch** to Zoom In, **Compress** to Zoom Out (Rate-based) |
-| **Steer** | Pinch + Open Hand | **Rotate** like a steering wheel |
-| **Reset** | **Namaste** (Palms Together) | **Reset** position, scale, and rotation to center |
+### 🦾 "Iron Man" Gesture Control
+Experience 6DoF control without touching a screen:
+| Gesture | Action |
+| :--- | :--- |
+| **Pinch & Drag** | Inspect specific data clusters |
+| **Double Pinch** | **Elastic Zoom** into the data (Drill Down) |
+| **Namaste** | **Reset** view to executive summary |
 
-### 🧭 Gesture Guide
-New to the interface? Click the **?** button in the top-left to see an interactive guide of all available gestures.
-
-### ⚡ Performance Optimized
-*   **Adaptive Particles**: Automatically adjusts particle count (5000 on Desktop, 2000 on Mobile) for smooth performance.
-*   **FPS Monitoring**: Real-time Heads-Up Display for performance stats.
-*   **Hot Path Optimization**: Zero-allocation rendering loop for stable 60 FPS.
-
-### 🧬 Particle Morphing
-Seamlessly transform between mathematical and organic forms:
-*   **Sphere**, **Heart**, **Flower**, **Saturn**, **Buddha**, **Fireworks**.
-
-### 🎨 Customization
-*   **Real-time Color Picker**: Paint the particles with any color.
-*   **HUD Camera**: Integrated "Heads-Up Display" for immersive tracking.
+### 🔌 Universal Data Connector
+*   **Google Sheets**: Paste a public Sheet ID to instantly visualize your data.
+*   **CSV Drag-and-Drop**: Secure, offline visualization of local files.
+*   **Intelligent Mapper**: Auto-detects columns like "Revenue", "Growth", "Conversion" and binds them to the physics engine.
 
 ## 🛠️ Technology Stack
-
-*   **HTML5 / CSS3**: Single-file architecture.
-*   **Three.js**: High-performance WebGL 3D rendering.
-*   **MediaPipe Hands**: Google's real-time hand tracking ML solution.
-*   **Vanilla JS**: No heavy frameworks, just pure performance.
+*   **Core**: Three.js (WebGL), Custom GLSL Shaders
+*   **Input**: MediaPipe Hands (ML Tracking), Fingerpose
+*   **Architecture**: Single-file SPA (Vanilla JS + CSS3 Glassmorphism)
 
 ## 🚀 How to Run
 
-1.  **Clone the repository**:
+1.  **Clone**:
     ```bash
     git clone https://github.com/MathewJoseph1993/AetherTouch.git
     cd AetherTouch
     ```
+2.  **Serve**:
+    *   `npx serve .` or `python3 -m http.server 8000`
+3.  **Visualize**: Open `http://localhost:8000`
 
-2.  **Serve the file**:
-    Due to browser security restrictions with Webcams, you must run this over a local server.
-    *   **VS Code**: Right-click `index.html` -> "Open with Live Server".
-    *   **Python**: `python3 -m http.server 8000`
-    *   **Node**: `npx serve .`
-
-3.  **Grant Permissions**: Allow your browser to access the Webcam.
-
-## 🎮 Controls Guide
-
-### 1️⃣ Zooming (God Mode)
-*   **Gesture**: Raise both hands and **PINCH** with both.
-*   **Action**: 
-    *   Pull hands apart: **Zoom IN** (up to 1000%).
-    *   Push hands together: **Zoom OUT**.
-    *   Release pinch: **Freeze** zoom level.
-
-### 2️⃣ Moving & Rotating
-*   **Gesture**: **PINCH** with one hand.
-*   **Action**: Move hand to drag. Rotate wrist to roll the object.
-
-### 3️⃣ System Reset
-*   **Gesture**: **Namaste** (Bring palms together like a clap).
-*   **Keyboard**: Press **SPACEBAR**.
-*   **Effect**: Instantly centers and resets the object.
-
-## 🤝 Contributing
-
-Contributions are welcome! Please fork the repository and submit a pull request for any new shapes, gestures, or optimizations.
-
-## 📄 License
-
-This project is open-source and available under the [MIT License](LICENSE).
+## 🤝 Roadmap
+*   **Phase 1-7**: Physics Core & Basic Shapes (Done)
+*   **Phase 8**: SaaS Overhaul & Intelligence Layer (Done)
+*   **Phase 9**: Deployment & Vercel Integration (Next)
 
 ---
-*Built with ❤️ and ☕ by [Mathew Joseph](https://www.linkedin.com/in/gtm-engineer-mathew/)*
+*Built for the Future of Work.*
