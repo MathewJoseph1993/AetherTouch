@@ -52,4 +52,4 @@ Experience 6DoF control without touching a screen:
 *   **Phase 9**: Deployment & Vercel Integration (Next)
 
 ---
-*Built for the Future of Work.*
+*Built with ❤️ and ☕ by [Mathew Joseph](https://www.linkedin.com/in/gtm-engineer-mathew/)*
