@@ -1283,8 +1283,25 @@
         class MockAdapter {
             get name() { return "Mock Data"; }
             async getData() {
-                const response = await fetch('data.json');
-                return await response.json();
+                // Fallback data for when fetch fails (e.g., file:// protocol)
+                const fallbackData = {
+                    meta: { generated_at: new Date().toISOString(), source: "Fallback Data" },
+                    revenue: { current: 1250000, target: 1500000, forecast: "1.42M", growth_yoy: 24.5 },
+                    funnel: { leads: 4503, opportunities: 320, deals: 45, conversion_rate: 3.4 },
+                    regions: {
+                        emea: { growth: 12, status: "stable" },
+                        apac: { growth: 45, status: "hot" },
+                        na: { growth: 8, status: "slow" }
+                    }
+                };
+
+                try {
+                    const response = await fetch('data.json');
+                    return await response.json();
+                } catch (err) {
+                    console.warn('Could not fetch data.json, using fallback data. Run with a local server for full functionality.');
+                    return fallbackData;
+                }
             }
         }
 
@@ -1352,6 +1369,40 @@
                 loader.innerHTML = '<p style="color: #ff6b6b; padding: 20px;">Three.js failed to load.<br><small>Please check your internet connection and refresh.</small></p>';
             }
             throw new Error('Three.js required');
+        }
+
+        // Check WebGL availability
+        function isWebGLAvailable() {
+            try {
+                const canvas = document.createElement('canvas');
+                return !!(window.WebGLRenderingContext &&
+                    (canvas.getContext('webgl') || canvas.getContext('experimental-webgl')));
+            } catch (e) {
+                return false;
+            }
+        }
+
+        if (!isWebGLAvailable()) {
+            const loader = document.getElementById('loader');
+            if (loader) {
+                loader.innerHTML = `
+                    <div style="padding: 30px; text-align: center; color: #ff6b6b;">
+                        <h2 style="color: #00f3ff; margin-bottom: 15px;">WebGL Not Available</h2>
+                        <p>Your browser or device doesn't support WebGL, which is required for 3D graphics.</p>
+                        <br>
+                        <p><strong>Try these fixes:</strong></p>
+                        <ul style="text-align: left; display: inline-block; margin-top: 10px;">
+                            <li>Enable hardware acceleration in browser settings</li>
+                            <li>Update your graphics drivers</li>
+                            <li>Try a different browser (Chrome/Firefox recommended)</li>
+                            <li>Make sure you're not in a remote desktop session</li>
+                        </ul>
+                    </div>
+                `;
+                loader.style.display = 'flex';
+                loader.classList.remove('hidden');
+            }
+            throw new Error('WebGL not available');
         }
 
         const container = document.getElementById('canvas-container');
