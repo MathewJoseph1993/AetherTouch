@@ -906,14 +906,45 @@
         // Global Error Handler
         window.onerror = function (msg, url, line, col, error) {
             const errorLog = document.getElementById('error-log');
+            const loader = document.getElementById('loader');
+
+            // Handle cross-origin script errors (show helpful message)
+            if (msg === 'Script error.' && line === 0) {
+                console.warn("Cross-origin script error detected. This is usually safe to ignore if the app loads.");
+                return true; // Suppress the generic error display
+            }
+
             if (errorLog) {
                 errorLog.style.display = 'block';
                 errorLog.innerHTML += `<div>Error: ${msg} <br> Line: ${line}</div>`;
             }
             console.error("Critical Error", msg, error);
-            document.getElementById('loader').innerText = "Error Loading App";
+            if (loader) loader.innerText = "Error Loading App";
             return false;
         };
+
+        // Validate required libraries are loaded
+        function checkLibraries() {
+            const missing = [];
+            if (typeof THREE === 'undefined') missing.push('Three.js');
+            if (typeof Hands === 'undefined') missing.push('MediaPipe Hands');
+            if (typeof fp === 'undefined') missing.push('Fingerpose');
+
+            if (missing.length > 0) {
+                const loader = document.getElementById('loader');
+                if (loader) {
+                    loader.innerHTML = `<div class="spinner"></div><p style="margin-top: 1rem; color: #ff6b6b;">Failed to load: ${missing.join(', ')}<br><small>Check your internet connection or try disabling ad blockers.</small></p>`;
+                }
+                console.error("Missing libraries:", missing);
+                return false;
+            }
+            return true;
+        }
+
+        // Defer initialization until DOM and libraries are ready
+        if (!checkLibraries()) {
+            throw new Error("Required libraries not loaded");
+        }
 
         // --- One Euro Filter (Industry-standard smoothing for gesture tracking) ---
         // Reduces jitter while maintaining responsiveness
