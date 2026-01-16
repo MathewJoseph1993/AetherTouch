@@ -2198,37 +2198,75 @@
             }
         });
 
-        const hands = new Hands({
-            locateFile: (file) => {
-                return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
-            }
-        });
-
-        hands.setOptions({
-            maxNumHands: 2,
-            modelComplexity: 1,
-            minDetectionConfidence: 0.5,
-            minTrackingConfidence: 0.5
-        });
-
-        hands.onResults(onResults);
-
-        // Webcam initialization
-        const cameraUtils = new Camera(videoElement, {
-            onFrame: async () => {
-                await hands.send({ image: videoElement });
-            },
-            width: 640,
-            height: 480
-        });
-
-        cameraUtils.start()
-            .then(() => console.log('Camera started'))
-            .catch(err => {
-                console.error('Camera error', err);
-                statusText.innerText = "Camera Access Denied";
-                document.getElementById('loader').classList.add('hidden');
+        let hands;
+        try {
+            hands = new Hands({
+                locateFile: (file) => {
+                    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+                }
             });
+
+            hands.setOptions({
+                maxNumHands: 2,
+                modelComplexity: 1,
+                minDetectionConfidence: 0.5,
+                minTrackingConfidence: 0.5
+            });
+
+            hands.onResults(onResults);
+        } catch (err) {
+            console.error('MediaPipe Hands initialization failed:', err);
+            statusText.innerText = "Hand tracking unavailable";
+            document.getElementById('loader').classList.add('hidden');
+        }
+
+        // Webcam initialization (only if hands initialized successfully)
+        let cameraUtils;
+        if (hands) {
+            cameraUtils = new Camera(videoElement, {
+                onFrame: async () => {
+                    if (hands) await hands.send({ image: videoElement });
+                },
+                width: 640,
+                height: 480
+            });
+        }
+
+        // Fallback: Hide loader after timeout even if hand tracking isn't ready
+        // This allows users to see the 3D visualization while models load
+        const loaderTimeout = setTimeout(() => {
+            const loader = document.getElementById('loader');
+            if (loader && !loader.classList.contains('hidden')) {
+                loader.classList.add('hidden');
+                statusText.innerText = "Hand tracking loading...";
+                console.log('Loader hidden by timeout - 3D ready, hand tracking may still be loading');
+            }
+        }, 5000); // 5 second timeout
+
+        if (cameraUtils) {
+            cameraUtils.start()
+                .then(() => {
+                    console.log('Camera started');
+                    // Give MediaPipe a moment, then hide loader if still visible
+                    setTimeout(() => {
+                        const loader = document.getElementById('loader');
+                        if (loader && !loader.classList.contains('hidden')) {
+                            loader.classList.add('hidden');
+                            statusText.innerText = "Waiting for hands...";
+                        }
+                    }, 3000);
+                })
+                .catch(err => {
+                    console.error('Camera error', err);
+                    clearTimeout(loaderTimeout);
+                    statusText.innerText = "Camera Access Denied";
+                    document.getElementById('loader').classList.add('hidden');
+                });
+        } else {
+            // No camera/hands - just hide loader and show 3D
+            document.getElementById('loader').classList.add('hidden');
+            statusText.innerText = "3D View Only (no hand tracking)";
+        }
 
 
         // --- FPS Monitoring ---
