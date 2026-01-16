@@ -903,6 +903,16 @@
     <div id="error-log"></div>
 
     <script>
+        // IMMEDIATE: Set a fallback timeout to hide loader no matter what
+        // This ensures the app doesn't stay stuck on loading forever
+        setTimeout(() => {
+            const loader = document.getElementById('loader');
+            if (loader && !loader.classList.contains('hidden')) {
+                loader.classList.add('hidden');
+                console.log('Loader hidden by emergency timeout');
+            }
+        }, 8000); // 8 second emergency fallback
+
         // Global Error Handler
         window.onerror = function (msg, url, line, col, error) {
             const errorLog = document.getElementById('error-log');
@@ -919,7 +929,9 @@
                 errorLog.innerHTML += `<div>Error: ${msg} <br> Line: ${line}</div>`;
             }
             console.error("Critical Error", msg, error);
-            if (loader) loader.innerText = "Error Loading App";
+            if (loader) {
+                loader.classList.add('hidden'); // Hide loader on error
+            }
             return false;
         };
 
@@ -941,9 +953,10 @@
             return true;
         }
 
-        // Defer initialization until DOM and libraries are ready
-        if (!checkLibraries()) {
-            throw new Error("Required libraries not loaded");
+        // Check libraries but don't throw - allow graceful degradation
+        const librariesLoaded = checkLibraries();
+        if (!librariesLoaded) {
+            console.warn("Some libraries failed to load. App may have limited functionality.");
         }
 
         // --- One Euro Filter (Industry-standard smoothing for gesture tracking) ---
@@ -1321,6 +1334,16 @@
         connector.fetch(); // Load default
 
         // --- Three.js Setup ---
+        // Exit early if Three.js didn't load
+        if (typeof THREE === 'undefined') {
+            console.error('Three.js not loaded - cannot render 3D scene');
+            const loader = document.getElementById('loader');
+            if (loader) {
+                loader.innerHTML = '<p style="color: #ff6b6b; padding: 20px;">Three.js failed to load.<br><small>Please check your internet connection and refresh.</small></p>';
+            }
+            throw new Error('Three.js required');
+        }
+
         const container = document.getElementById('canvas-container');
         const scene = new THREE.Scene();
         scene.fog = new THREE.FogExp2(0x050505, 0.02);
