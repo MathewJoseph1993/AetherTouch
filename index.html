@@ -902,17 +902,27 @@
     <!-- Error Log (Debug) -->
     <div id="error-log"></div>
 
+    <!-- ISOLATED: Emergency loader timeout - separate script so it always runs -->
     <script>
-        // IMMEDIATE: Set a fallback timeout to hide loader no matter what
-        // This ensures the app doesn't stay stuck on loading forever
-        setTimeout(() => {
-            const loader = document.getElementById('loader');
-            if (loader && !loader.classList.contains('hidden')) {
-                loader.classList.add('hidden');
-                console.log('Loader hidden by emergency timeout');
-            }
-        }, 8000); // 8 second emergency fallback
+        (function() {
+            // This runs immediately and independently
+            var hideLoader = function() {
+                var loader = document.getElementById('loader');
+                if (loader) {
+                    loader.style.display = 'none';
+                    loader.classList.add('hidden');
+                }
+            };
+            // Hide after 5 seconds no matter what
+            setTimeout(hideLoader, 5000);
+            // Also hide on window load
+            window.addEventListener('load', function() {
+                setTimeout(hideLoader, 2000);
+            });
+        })();
+    </script>
 
+    <script>
         // Global Error Handler
         window.onerror = function (msg, url, line, col, error) {
             const errorLog = document.getElementById('error-log');
