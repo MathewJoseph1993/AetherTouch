@@ -635,6 +635,98 @@
             width: 150%;
             height: 150%;
         }
+
+        /* Legend Panel */
+        .legend-panel {
+            position: absolute;
+            bottom: 100px;
+            left: 20px;
+            background: var(--panel-bg);
+            backdrop-filter: blur(10px);
+            padding: 15px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 10;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+            font-size: 0.85rem;
+            color: var(--text-color);
+        }
+
+        .legend-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .legend-item .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            box-shadow: 0 0 8px currentColor;
+        }
+
+        /* Toggle Switch */
+        .toggle-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 26px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.1);
+            transition: 0.3s;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+        }
+
+        input:checked + .slider {
+            background-color: var(--primary-color);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(24px);
+        }
+
+        .slider.round {
+            border-radius: 26px;
+        }
+
+        .slider.round:before {
+            border-radius: 50%;
+        }
     </style>
     <!-- Three.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -693,7 +785,6 @@
             </ul>
             <button class="close-btn" onclick="toggleHelp()">Got it!</button>
         </div>
-    </div>
     </div>
 
     <!-- Settings Modal (SaaS Style) -->
@@ -802,13 +893,14 @@
             <button class="tpl-btn" onclick="toggleHelp()">Help (?)</button>
         </div>
     </div>
-    </div>
 
     <p style="font-size: 0.7rem; color: #666; text-align: center; margin-top: 1rem;">
         Created by <a href="https://www.linkedin.com/in/gtm-engineer-mathew/" target="_blank"
             style="color: var(--primary-color); text-decoration: none;">Mathew Joseph</a>
     </p>
-    </div>
+
+    <!-- Error Log (Debug) -->
+    <div id="error-log"></div>
 
     <script>
         // Global Error Handler
